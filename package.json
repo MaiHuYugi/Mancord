@@ -1,0 +1,10 @@
+{
+  "name": "mancord",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/web", "apps/mobile"],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @mancord/web",
+    "dev:android": "npm run start --workspace @mancord/mobile"
+  }
+}

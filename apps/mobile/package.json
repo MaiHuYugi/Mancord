@@ -1,0 +1,8 @@
+{
+  "name": "@mancord/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": { "start": "expo start" },
+  "dependencies": { "expo": "latest", "expo-status-bar": "latest", "react": "latest", "react-native": "latest", "lucide-react-native": "latest", "@supabase/supabase-js": "latest", "expo-document-picker": "latest", "expo-file-system": "latest", "expo-video": "latest", "expo-sqlite": "latest", "react-native-url-polyfill": "latest" }
+}

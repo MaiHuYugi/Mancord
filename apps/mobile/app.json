@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Mancord",
+    "slug": "mancord",
+    "scheme": "mancord",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": { "package": "com.mancord.app", "adaptiveIcon": { "backgroundColor": "#b5a5ff" } }
+  }
+}
