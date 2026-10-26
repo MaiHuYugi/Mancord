@@ -1,5 +1,7 @@
+import ProfileSetup from './ProfileSetup.jsx';
+import InterestsScreen from './InterestsScreen.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ImagePlus, LoaderCircle, LockKeyhole, Mail, UploadCloud, UserRound, X } from 'lucide-react';
+import { Check, LoaderCircle, LockKeyhole, X } from 'lucide-react';
 import Mancord from './Mancord.jsx';
 import { supabase } from './supabase.js';
 
@@ -10,7 +12,8 @@ const extensions = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp',
 export default function AuthFlow() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('welcome');
+  const [interestsOpen, setInterestsOpen] = useState(false);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,6 +23,7 @@ export default function AuthFlow() {
   const [busy, setBusy] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const fileRef = useRef(null);
+  const logoutInProgress = useRef(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -30,11 +34,19 @@ export default function AuthFlow() {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!alive) return;
       setSession(nextSession);
-      setProfile(null);
+      // Focus and token refresh events can repeat for the same user. Keep the
+      // loaded profile: its fetch effect only runs when the user ID changes.
+      setProfile(current => current?.id === nextSession?.user?.id ? current : null);
       setError('');
+      if (event === 'SIGNED_OUT') {
+        setProfileLoading(false);
+        setAuthForm({ email: '', password: '', confirm: '' });
+        setNotice('');
+        setMode('login');
+      }
     });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -104,37 +116,70 @@ export default function AuthFlow() {
       const { data, error: saveError } = await supabase.from('profiles').update({ username, display_name: username, avatar_url: avatarUrl, avatar_media_type: profileForm.file?.type || null, profile_completed: true }).eq('id', session.user.id).select('id,username,display_name,avatar_url,avatar_media_type,profile_completed').single();
       if (saveError) throw saveError;
       setProfile(data);
+      setInterestsOpen(true);
     } catch (saveError) {
       if (saveError.code === '23505') setError('That username is already taken. Try another one.');
       else setError(saveError.message || 'Could not save your profile. Please try again.');
     } finally { setBusy(false); }
   }
 
-  async function signOut() { setError(''); await supabase.auth.signOut(); setProfile(null); setMode('login'); }
+  async function signOut() {
+    if (logoutInProgress.current || busy) return;
+    logoutInProgress.current = true;
+    setError(''); setBusy(true);
+    try {
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+      if (signOutError) {
+        // The SDK can clear this device's session even if server revocation
+        // fails. Only keep the user signed in if a session actually remains.
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || data.session) throw signOutError;
+      }
+      setSession(null); setProfile(null); setProfileLoading(false);
+      setAuthForm({ email: '', password: '', confirm: '' });
+      if (profileForm.preview) URL.revokeObjectURL(profileForm.preview);
+      setProfileForm({ username: '', file: null, preview: '' });
+      setVideoDuration(0); setNotice(''); setInterestsOpen(false); setMode('login');
+    } catch (signOutError) {
+      setError(signOutError.message || 'Could not log out. Please try again.');
+    } finally { logoutInProgress.current = false; setBusy(false); }
+  }
 
   if (!supabase) return <main className="auth-backdrop"><div className="auth-card setup-card"><Brand /><div className="auth-icon"><LockKeyhole size={22}/></div><h1>Connect Mancord</h1><p>Add your Supabase project URL and anon key to <code>apps/web/.env.local</code>, then restart the web app to enable account creation and login.</p><div className="setup-code">VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY</div></div></main>;
   if (loading || (session && (profileLoading || (!profile && !error)))) return <main className="auth-backdrop"><div className="auth-loading"><span className="brand-mark">m.</span><LoaderCircle className="spinner" size={20}/></div></main>;
   if (session && !profile && error) return <main className="auth-backdrop"><section className="auth-card"><Brand/><div className="auth-error"><X size={15}/><span>{error}</span></div><button className="auth-submit" onClick={signOut}>Sign out</button></section></main>;
-  if (session && profile && !profile.profile_completed) return <ProfileSetup user={session.user} form={profileForm} setField={updateProfile} fileRef={fileRef} onSelect={selectMedia} onVideoMetadata={setVideoDuration} onSubmit={submitProfile} busy={busy} error={error} />;
-  if (session && profile?.profile_completed) return <Mancord profile={profile} onSignOut={signOut} />;
+  if (session && profile && !profile.profile_completed) return <ProfileSetup user={session.user} form={profileForm} setField={updateProfile} fileRef={fileRef} onSelect={selectMedia} onVideoMetadata={setVideoDuration} onSubmit={submitProfile} onSignOut={signOut} busy={busy} error={error} />;
+  if (session && profile?.profile_completed && interestsOpen) return <main className="auth-backdrop"><InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/></main>;
+  if (session && profile?.profile_completed) return <Mancord email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} />;
 
-  return <main className="auth-backdrop"><section className="auth-card"><Brand /><div className="auth-icon"><LockKeyhole size={22}/></div><h1>{mode === 'register' ? 'Create your account' : 'Welcome back'}</h1><p>{mode === 'register' ? 'Start your own little corner of Mancord.' : 'Log in to find your people.'}</p>
-    {notice && <div className="auth-notice"><Check size={15}/><span>{notice}</span></div>}{error && <div className="auth-error"><X size={15}/><span>{error}</span></div>}
-    <form onSubmit={submitAuth} className="auth-form"><label>Email address<span className="field"><Mail size={16}/><input type="email" autoComplete="email" required value={authForm.email} onChange={event => updateAuth('email',event.target.value)} placeholder="you@example.com" /></span></label><label>Password<span className="field"><LockKeyhole size={16}/><input type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} minLength={8} required value={authForm.password} onChange={event => updateAuth('password',event.target.value)} placeholder="At least 8 characters" /></span></label>{mode === 'register' && <label>Confirm password<span className="field"><LockKeyhole size={16}/><input type="password" autoComplete="new-password" minLength={8} required value={authForm.confirm} onChange={event => updateAuth('confirm',event.target.value)} placeholder="Type it again" /></span></label>}<button disabled={busy} className="auth-submit">{busy ? <LoaderCircle size={17} className="spinner"/> : mode === 'register' ? 'Create account' : 'Log in'}{!busy && <ArrowRight size={17}/>}</button></form>
-    <div className="auth-switch">{mode === 'register' ? 'Already have an account?' : 'New to Mancord?'} <button onClick={() => {setMode(mode === 'register'?'login':'register');setError('');setNotice('');}}> {mode === 'register' ? 'Log in' : 'Create an account'}</button></div><div className="auth-free"><span>✦</span> Everything good is free here.</div>
+  function navigate(nextMode) { setMode(nextMode); setError(''); setNotice(''); }
+
+  if (mode === 'welcome') return <main className="auth-backdrop"><section className="welcome-screen" aria-labelledby="welcome-title">
+    <div className="welcome-brand"><h1 id="welcome-title">MANCORD</h1><p>Your universe. Your voice.</p></div>
+    <div className="welcome-actions"><button className="welcome-start" onClick={() => navigate('register')}>Get Started</button><button className="welcome-login" onClick={() => navigate('login')}>I already have an account</button></div>
+    <p className="welcome-terms">By continuing, you agree to our Terms &amp; Privacy Policy</p>
+  </section></main>;
+
+  const registering = mode === 'register';
+  return <main className="auth-backdrop"><section className={`auth-screen ${registering ? 'register-screen' : 'login-screen'}`} aria-labelledby="auth-title">
+    <button className="auth-back" aria-label="Back to welcome" disabled={busy} onClick={() => navigate('welcome')}><AuthAsset name="back" /></button>
+    <header className="auth-heading"><h1 id="auth-title" className={registering ? '' : 'login-greeting'}>{registering ? 'Create Account' : 'welcome to Mancord!'}</h1>{registering && <p>Join the Mancord community</p>}</header>
+    <div className="auth-feedback" aria-live="polite">{notice && <div className="auth-notice" role="status"><Check size={15}/><span>{notice}</span></div>}{error && <div className="auth-error" role="alert"><X size={15}/><span>{error}</span></div>}</div>
+    <form onSubmit={submitAuth} className="auth-form" aria-busy={busy}>
+      {registering && <label className="auth-input"><span className="sr-only">Username</span><span className="field"><AuthAsset name="user"/><input autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" required value={profileForm.username} onChange={event => updateProfile('username',event.target.value)} placeholder="Username" disabled={busy}/></span></label>}
+      <label className="auth-input"><span className="sr-only">Email address</span><span className="field"><AuthAsset name="mail"/><input type="email" autoComplete="email" required value={authForm.email} onChange={event => updateAuth('email',event.target.value)} placeholder="Email Address" disabled={busy}/></span></label>
+      <label className="auth-input"><span className="sr-only">Password</span><span className="field"><AuthAsset name="lock"/><input type="password" autoComplete={registering ? 'new-password' : 'current-password'} minLength={8} required value={authForm.password} onChange={event => updateAuth('password',event.target.value)} placeholder="Password" disabled={busy}/></span></label>
+      {registering && <label className="auth-input"><span className="sr-only">Confirm password</span><span className="field"><AuthAsset name="lock"/><input type="password" autoComplete="new-password" minLength={8} required value={authForm.confirm} onChange={event => updateAuth('confirm',event.target.value)} placeholder="Confirm Password" disabled={busy}/></span></label>}
+      <button disabled={busy} className="auth-submit">{busy ? <><LoaderCircle size={18} className="spinner"/>Please wait…</> : 'Continue'}</button>
+    </form>
+    <div className="auth-divider"><span>or {registering ? 'sign up' : 'sign in'} with</span></div>
+    <div className="auth-social"><button disabled title="Google sign-in is not available"><span className="social-icon-space" aria-hidden="true"/>Google</button><button disabled title="Apple sign-in is not available"><AuthAsset name="apple"/>Apple</button></div>
+    <p className="auth-provider-note">Google and Apple sign-in coming soon</p>
+    <div className="auth-switch">{registering ? 'Already have an account?' : 'New to Mancord?'} <button disabled={busy} onClick={() => navigate(registering ? 'login' : 'register')}>{registering ? 'Log in' : 'Create an account'}</button></div>
+    <footer className="auth-footer"><button className="auth-back" disabled={busy} onClick={() => navigate('welcome')}><AuthAsset name="back-small"/>Back</button></footer>
   </section></main>;
 }
+
+function AuthAsset({ name }) { return <img className="auth-asset" src={`/assets/auth/${name}.svg`} alt=""/>; }
 
 function Brand() { return <div className="auth-brand"><span className="brand-mark">m.</span><span>mancord</span></div>; }
-
-function ProfileSetup({ user, form, setField, fileRef, onSelect, onVideoMetadata, onSubmit, busy, error }) {
-  const isVideo = form.file?.type.startsWith('video/');
-  return <main className="auth-backdrop"><section className="auth-card profile-card"><Brand /><div className="auth-icon profile-icon"><UserRound size={22}/></div><h1>Make yourself at home</h1><p>Choose your Mancord username and profile media to continue.</p>
-    <div className="signed-in-email"><Mail size={14}/>{user.email}</div>{error && <div className="auth-error"><X size={15}/><span>{error}</span></div>}
-    <form className="auth-form" onSubmit={onSubmit}><label>Username<span className="field"><span className="at-sign">@</span><input value={form.username} onChange={event=>setField('username',event.target.value)} autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" required placeholder="yourname" /></span></label>
-      <label>Profile photo, GIF, or short video</label><input ref={fileRef} className="file-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm" onChange={event=>onSelect(event.target.files?.[0])}/>
-      <button type="button" className="media-picker" onClick={()=>fileRef.current?.click()}>{form.preview ? (isVideo ? <video src={form.preview} autoPlay muted loop playsInline onLoadedMetadata={event=>onVideoMetadata(event.currentTarget.duration)} /> : <img src={form.preview} alt="Profile preview" />) : <span className="media-placeholder"><ImagePlus size={22}/><span>Choose a file</span><small>GIF, photo, MP4 or WebM · max 8 MB</small></span>}<span className="media-edit"><UploadCloud size={15}/></span></button>
-      <div className="media-hint">Short profile videos must be 12 seconds or less.</div><button disabled={busy} className="auth-submit">{busy ? <LoaderCircle size={17} className="spinner"/> : 'Enter Mancord'}{!busy && <ArrowRight size={17}/>}</button>
-    </form>
-  </section></main>;
-}

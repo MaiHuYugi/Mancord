@@ -1,5 +1,8 @@
-import { useMemo, useState } from 'react';
-import { Activity, Bell, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Gift, Hash, Headphones, Image, Inbox, LogOut, Mic, MicOff, MoreHorizontal, Plus, Search, Send, Smile, Sparkles, Sticker, Users, Video, Volume2, Wifi, X } from 'lucide-react';
+import Avatar from './Avatar.jsx';
+import SettingsPanel from './SettingsPanel.jsx';
+import CommunityNavigation, { ServerRail, servers } from './CommunityNavigation.jsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Activity, Bell, ChevronLeft, ChevronRight, CircleHelp, Gift, Hash, Headphones, Image, Inbox, Mic, MicOff, MoreHorizontal, Plus, Search, Send, Settings, Smile, Sparkles, Sticker, Users, Video, Wifi, X } from 'lucide-react';
 
 const initialMessages = [
   { name: 'Mira', tag: 'mira.wav', time: 'Today at 10:42 AM', color: 'lavender', avatar: 'M', text: 'Morning, everyone! I pushed the new visual direction into the board ✨' },
@@ -8,30 +11,29 @@ const initialMessages = [
   { name: 'Mira', tag: 'mira.wav', time: 'Today at 10:51 AM', color: 'lavender', avatar: 'M', text: 'Perfect. I left a few notes in #design-corner for the spacing.' },
 ];
 
-const channelGroups = [
-  { title: 'START HERE', channels: [['welcome', '✳'], ['introductions', '♧'], ['announcements', '◉']] },
-  { title: 'THE LOUNGE', channels: [['general', '#'], ['design-corner', '#'], ['share-your-work', '#'], ['resources', '#']] },
-];
 const people = [ ['Mira', 'Online', 'lavender', 'M'], ['Kai', 'Online · Listening to music', 'mint', 'K'], ['Noah', 'Idle', 'peach', 'N'], ['June', 'Do not disturb', 'rose', 'J'] ];
 
-function Avatar({ person, small = false }) {
-  const isVideo = person.mediaType?.startsWith('video/');
-  return <div className={`avatar ${person.color || 'blue'} ${small ? 'small' : ''} ${person.mediaUrl ? 'media-avatar' : ''}`}>
-    {person.mediaUrl ? (isVideo ? <video src={person.mediaUrl} autoPlay muted loop playsInline /> : <img src={person.mediaUrl} alt="" />) : person.avatar}
-    <i />
-  </div>;
-}
-
-export default function Mancord({ profile, onSignOut }) {
+export default function Mancord({ profile, email, onSignOut, signingOut = false, authError = null }) {
   const [channel, setChannel] = useState('general');
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState('');
   const [muted, setMuted] = useState(false);
   const [deafened, setDeafened] = useState(false);
   const [inVoice, setInVoice] = useState(false);
-  const [mobileNav, setMobileNav] = useState(false);
+  const [mobileNav, setMobileNav] = useState(true);
+  const [serverIndex, setServerIndex] = useState(0);
+  const [settingsKind, setSettingsKind] = useState('profile');
   const [notice, setNotice] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsDialog = useRef(null);
   const visibleMessages = useMemo(() => messages, [messages]);
+
+  useEffect(() => {
+    if (settingsOpen) settingsDialog.current?.showModal();
+    else settingsDialog.current?.close();
+  }, [settingsOpen]);
+
+  function openSettings(kind = 'profile') { setSettingsKind(kind); setSettingsOpen(true); }
 
   function submit(event) {
     event.preventDefault();
@@ -41,39 +43,12 @@ export default function Mancord({ profile, onSignOut }) {
   }
   function toast(text) { setNotice(text); window.setTimeout(() => setNotice(''), 2800); }
 
-  return <main className="app-shell">
-    <aside className={`server-rail ${mobileNav ? 'show' : ''}`}>
-      <button className="server-logo" aria-label="Mancord home">m<span>.</span></button>
-      <div className="rail-divider" />
-      <button className="server-icon selected" aria-label="The little corner"><span>✿</span><i /></button>
-      <button className="server-icon add-server" onClick={() => toast('Server creation is coming soon.')} aria-label="Add a server"><Plus size={21} /></button>
-      <div className="rail-spacer" />
-      <button className="server-icon" aria-label="Inbox"><Inbox size={19} /></button>
-      <button className="server-icon" aria-label="Help"><CircleHelp size={19} /></button>
-      <Avatar person={{ color: 'blue', avatar: profile?.username?.[0]?.toUpperCase() || 'Y', mediaUrl: profile?.avatar_url, mediaType: profile?.avatar_media_type }} small />
-    </aside>
-
-    <aside className={`channel-sidebar ${mobileNav ? 'show' : ''}`}>
-      <button className="server-heading" onClick={() => toast('Server settings are coming soon.')}><span>The little corner</span><ChevronDown size={17} /></button>
-      <div className="channel-scroll">
-        {channelGroups.map(group => <section className="channel-group" key={group.title}>
-          <div className="group-heading">{group.title}<button aria-label={`Add to ${group.title}`} onClick={() => toast('Channel creation is coming soon.')}><Plus size={15} /></button></div>
-          {group.channels.map(([name, icon]) => <button key={name} className={`channel-row ${channel === name ? 'active' : ''}`} onClick={() => { setChannel(name); setMobileNav(false); }}><span className="channel-glyph">{icon === '#' ? <Hash size={17} /> : icon}</span><span>{name}</span>{name === 'general' && <span className="unread-dot" />}</button>)}
-        </section>)}
-        <section className="channel-group"><div className="group-heading">VOICE HANGOUT<button aria-label="Add voice channel" onClick={() => toast('Voice channels are coming soon.')}><Plus size={15} /></button></div>
-          <button className="channel-row voice-row" onClick={() => setInVoice(!inVoice)}><Volume2 size={17} /><span>the cozy room</span></button>
-          {inVoice && <div className="voice-presence"><span>●</span> You joined the room</div>}
-          <button className="channel-row voice-row" onClick={() => toast('Voice connection will be available when the audio service is connected.')}><Volume2 size={17} /><span>late night talks</span></button>
-        </section>
-        <section className="channel-group dm-group"><div className="group-heading">DIRECT MESSAGES<button aria-label="New message" onClick={() => toast('Direct messages are coming soon.')}><Plus size={15} /></button></div>
-          {[['June', 'rose', 'J'], ['Ari', 'yellow', 'A'], ['Sage', 'mint', 'S']].map(([name, color, avatar]) => <button key={name} className="dm-row" onClick={() => toast(`DMs with ${name} are coming soon.`)}><Avatar person={{ name, color, avatar }} small /><span>{name}</span><MoreHorizontal size={16} /></button>)}
-        </section>
-      </div>
-      <div className="user-panel"><Avatar person={{ color: 'blue', avatar: profile?.username?.[0]?.toUpperCase() || 'Y', mediaUrl: profile?.avatar_url, mediaType: profile?.avatar_media_type }} small /><div className="user-meta"><strong>{profile?.username || 'member'}</strong><span>online</span></div><button aria-label="Mute" onClick={() => setMuted(!muted)}>{muted ? <MicOff size={17} /> : <Mic size={17} />}</button><button aria-label="Sign out" title="Sign out" onClick={onSignOut}><LogOut size={17} /></button></div>
-    </aside>
+  return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"}`}>
+    <ServerRail selected={serverIndex} onSelect={index=>{setServerIndex(index);setMobileNav(true);}} onNotice={toast} profile={profile} onSettings={()=>openSettings()}/>
+    <CommunityNavigation visible={mobileNav} server={servers[serverIndex]} channel={channel} onChannel={name=>{setChannel(name);setMobileNav(false);}} onServerSettings={()=>openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)} inVoice={inVoice} onVoice={()=>setInVoice(!inVoice)}/>
 
     <section className="chat-column">
-      <header className="topbar"><button className="mobile-menu" aria-label="Open channels" onClick={() => setMobileNav(!mobileNav)}><ChevronLeft size={20} /></button><div className="top-channel"><Hash size={19} /><strong>{channel}</strong></div><div className="topbar-divider" /><span className="channel-topic">a little place to make things together</span><div className="topbar-actions"><button aria-label="Notifications" onClick={() => toast('You’re all caught up!')}><Bell size={19} /></button><button aria-label="Pinned messages" onClick={() => toast('No pinned messages yet.')}><Sparkles size={19} /></button><button className="member-toggle" aria-label="Members"><Users size={19} /></button><button aria-label="Search"><Search size={19} /></button><button className="inbox-top" aria-label="Inbox"><Inbox size={19} /></button><button aria-label="Help"><CircleHelp size={19} /></button></div></header>
+      <header className="topbar"><button className="mobile-menu" aria-label="Open channels" onClick={() => setMobileNav(!mobileNav)}><ChevronLeft size={20} /></button><div className="top-channel"><Hash size={19} /><strong>{channel}</strong></div><div className="topbar-divider" /><span className="channel-topic">a little place to make things together</span><div className="topbar-actions"><button aria-label="Notifications" onClick={() => toast('You’re all caught up!')}><Bell size={19} /></button><button aria-label="Pinned messages" onClick={() => toast('No pinned messages yet.')}><Sparkles size={19} /></button><button className="member-toggle" aria-label="Members"><Users size={19} /></button><button aria-label="Search"><Search size={19} /></button><button className="inbox-top" aria-label="Inbox"><Inbox size={19} /></button><button aria-label="Help"><CircleHelp size={19} /></button><button type="button" className="settings-trigger" aria-label="Open settings" title="Settings" onClick={()=>openSettings()}><Settings size={19}/></button></div></header>
       <div className="message-list">
         <div className="channel-welcome"><div className="welcome-icon"><Hash size={25} /></div><h1>Welcome to #{channel}!</h1><p>This is the beginning of the <strong>#{channel}</strong> channel.</p><button onClick={() => toast('Channel details are coming soon.')}><Sparkles size={15} /> Make it yours</button></div>
         <div className="date-divider"><span>Today</span></div>
@@ -84,7 +59,9 @@ export default function Mancord({ profile, onSignOut }) {
     </section>
 
     <aside className="member-sidebar"><div className="member-heading"><span>MEMBERS — 4</span><button aria-label="Member options"><MoreHorizontal size={18} /></button></div><div className="member-section"><span className="member-section-title">AROUND</span>{people.map(person => <div className="member-row" key={person[0]}><Avatar person={{ color: person[2], avatar: person[3] }} /><div><strong>{person[0]}</strong><span>{person[1]}</span></div></div>)}</div><div className="free-perks"><div className="perks-icon"><Sparkles size={18} /></div><strong>Good things, free.</strong><p>Make your space yours. Every Mancord perk is here for everyone.</p><button onClick={() => toast('More customization is on its way.')}>Explore perks <ChevronRight size={14} /></button></div></aside>
+    <dialog ref={settingsDialog} className="settings-dialog" aria-label="Settings" onClose={()=>setSettingsOpen(false)}>
+      <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={servers[serverIndex]} onBack={()=>setSettingsOpen(false)} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
+    </dialog>
     {notice && <div className="toast"><Sparkles size={15} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss"><X size={14} /></button></div>}
-    {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
   </main>;
 }

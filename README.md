@@ -26,6 +26,10 @@ The root `vercel.json` builds the web workspace and publishes `apps/web/dist`. T
 
 ## Product scope
 
+The web and Android interfaces follow the Figma reference for welcome, login, registration, profile setup, interests, channel navigation, and profile/server settings. Inter, monochrome emoji, and the original SVG icons are bundled locally; font license notices are in `apps/web/public/assets/fonts`. On narrow web screens, selecting a channel opens chat and the back button returns to channels. Profile Settings contains Log out.
+
+Suggested avatars use the existing profile-media upload flow. Interests are saved on the current device. Account editing, privacy/notification controls, server administration, and account deletion remain previews: unavailable actions show a coming-soon message or disabled controls. These UI changes do not add service integrations or change the Supabase schema.
+
 The current step adds email/password signup and login, required first-run username and profile media setup, and sign-out on web and Android. The surrounding chat view remains a visual prototype: messages are local sample data. Multi-user chat still needs Supabase message reads/writes and Realtime subscriptions. Voice, camera, and screen sharing need a WebRTC SFU/signaling service and native platform permissions; Supabase Realtime alone does not provide that media layer. The UI does not promise 4K streaming.
 
 The SQL policies provide a starting point for member-scoped text chat. Review them alongside the actual invite, moderation, account deletion, and role-management flows before production. Service free-tier limits and billing can change; check current provider terms before launch.
