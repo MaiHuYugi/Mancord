@@ -3,6 +3,7 @@ import { AuthScreen, ProfileScreen, InterestsScreen } from './DesignScreens';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { maxProfileMediaSize as maxSize, readProfileMedia } from './profileMedia';
 import { supabase } from './supabase';
 import { MancordHome } from './MancordHome';
@@ -114,6 +115,38 @@ export default function AuthFlow() {
     }catch(e){setError(e.code==='23505'?'That username is already taken. Try another one.':(e.message||'Could not save your profile.'));}finally{setBusy(false);}
   }
 
+  async function saveAvatar(file){
+    if(!file?.uri)return;
+    setError('');setBusy(true);
+    try{
+      if(!accepted.includes(file.mimeType))throw new Error('Choose a JPEG, PNG, WebP, GIF, MP4, or WebM file.');
+      const contents=await readProfileMedia(file);
+      if(contents.byteLength>maxSize)throw new Error('Profile media must be 8 MB or smaller.');
+      const ext=extensions[file.mimeType];
+      const path=`${session.user.id}/${Date.now()}.${ext}`;
+      const {error:uploadError}=await supabase.storage.from('profile-media').upload(path,contents,{contentType:file.mimeType,cacheControl:'3600',upsert:false});
+      if(uploadError)throw uploadError;
+      const avatarUrl=supabase.storage.from('profile-media').getPublicUrl(path).data.publicUrl;
+      const {data,error:saveError}=await supabase.from('profiles').update({avatar_url:avatarUrl,avatar_media_type:file.mimeType}).eq('id',session.user.id).select('id,username,display_name,avatar_url,avatar_media_type,profile_completed').single();
+      if(saveError)throw saveError;
+      setProfile(data);
+    }catch(e){setError(e.message||'Could not update your avatar. Please try again.');}finally{setBusy(false);}
+  }
+
+  async function pickAvatar(kind){
+    setError('');
+    try{
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted){setError('Allow photo and video access to choose an avatar.');return;}
+      const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:kind==='video'?['videos']:['images'],allowsEditing:false,quality:1});
+      if(result.canceled)return;
+      const file=result.assets?.[0];
+      if(!file)return;
+      const mimeType=file.mimeType||(kind==='video'?'video/mp4':'image/jpeg');
+      await saveAvatar({uri:file.uri,name:file.fileName||`avatar-${Date.now()}.${extensions[mimeType]||'jpg'}`,mimeType,size:file.fileSize});
+    }catch(e){setError(e.message||'Could not open your media library.');}
+  }
+
   async function signOut(){
     if(logoutInProgress.current)return;
     logoutInProgress.current=true;setBusy(true);setError('');
@@ -134,7 +167,7 @@ export default function AuthFlow() {
   if(session&&!profile&&error)return <AuthScreen recoveryError={error} onSignOut={signOut}/>;
   if(session&&profile&&!profile.profile_completed)return <ProfileScreen email={session.user.email} username={username} setUsername={setUsername} media={media} chooseMedia={chooseMedia} chooseAvatar={chooseAvatar} onSignOut={signOut} finish={finishProfile} busy={busy} error={error}/>;
   if(session&&profile?.profile_completed&&interestsOpen)return <InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/>;
-  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error}/>;
+  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} onAvatarImage={()=>pickAvatar('image')} onAvatarVideo={()=>pickAvatar('video')} onAvatarCamera={saveAvatar}/>;
   return <AuthScreen mode={mode} setMode={value=>{setMode(value);setError('');setNotice('');}} email={email} setEmail={setEmail} password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} username={username} setUsername={setUsername} submit={submitAuth} busy={busy} error={error} notice={notice}/>;
 }
 

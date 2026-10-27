@@ -1,4 +1,4 @@
-import { CommunityScreen, SettingsScreen, servers } from './DesignScreens';
+import { CommunityScreen, SettingsScreen } from './DesignScreens';
 import React, { useState } from 'react';
 import { SafeAreaView, StatusBar, View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Hash, Headphones, LogOut, Mic, Plus, Search, Send, Settings, Users, Video, Wifi } from 'lucide-react-native';
@@ -12,15 +12,17 @@ const starter = [
 ];
 const channels = ['welcome', 'introductions', 'announcements', 'general', 'design-corner', 'share-your-work', 'resources'];
 
-export function MancordHome({ profile, email, onSignOut, signingOut = false, authError = null }) {
+export function MancordHome({ profile, email, onSignOut, signingOut = false, authError = null, onAvatarImage, onAvatarVideo, onAvatarCamera }) {
   const [channel, setChannel] = useState('general');
   const [messages, setMessages] = useState(starter);
   const [draft, setDraft] = useState('');
   const [tab, setTab] = useState('channels');
   const [serverIndex,setServerIndex] = useState(0);
+  const [serverList,setServerList] = useState([]);
+  const createServer=name=>{const clean=name.trim();if(!clean)return;setServerList(current=>[...current,{name:clean,glyph:'✨',color:'#24143f'}]);setServerIndex(serverList.length);};
   const send = () => { if (!draft.trim()) return; setMessages([...messages, { name: 'You', avatar: 'Y', color: '#a9c6ff', time: 'now', text: draft.trim() }]); setDraft(''); };
-  if(tab==='channels')return <CommunityScreen profile={profile} selected={serverIndex} onSelect={setServerIndex} onChannel={name=>{setChannel(name);setTab('chat');}} onSettings={()=>setTab('settings')} onServerSettings={()=>setTab('server-settings')}/>;
-  if(tab==='settings'||tab==='server-settings')return <SettingsScreen kind={tab==='server-settings'?'server':'profile'} profile={profile} email={email} server={servers[serverIndex]} onBack={()=>setTab('channels')} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>;
+  if(tab==='channels')return <CommunityScreen profile={profile} servers={serverList} selected={serverIndex} onSelect={setServerIndex} onCreateServer={createServer} onChannel={name=>{setChannel(name);setTab('chat');}} onSettings={()=>setTab('settings')} onServerSettings={()=>setTab('server-settings')}/>;
+  if(tab==='settings'||tab==='server-settings')return <SettingsScreen kind={tab==='server-settings'?'server':'profile'} profile={profile} email={email} server={serverList[serverIndex]} onBack={()=>setTab('channels')} onSignOut={onSignOut} signingOut={signingOut} authError={authError} onAvatarImage={onAvatarImage} onAvatarVideo={onAvatarVideo} onAvatarCamera={onAvatarCamera}/>;
   return <SafeAreaView style={styles.safe}><StatusBar barStyle="light-content" backgroundColor="#17181d"/><KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <View style={styles.header}><View style={styles.brand}><ProfileBadge profile={profile}/><Text style={styles.brandMark}>m.</Text><View><Text style={styles.brandName}>mancord</Text><Text style={styles.mobileUsername}>@{profile?.username}</Text></View></View><Pressable style={styles.headerButton}><Search color="#a7a6b2" size={20}/></Pressable><Pressable style={styles.headerButton}><Users color="#a7a6b2" size={20}/></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Open settings" onPress={()=>setTab("settings")} style={styles.headerButton} hitSlop={12}><Settings color="#a7a6b2" size={20}/></Pressable></View>
     {tab === 'chat' ? <>
