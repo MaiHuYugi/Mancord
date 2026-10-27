@@ -15,7 +15,7 @@ function SettingSwitch({ icon, label, checked }) {
 }
 function SettingsGroup({ title, children, danger = false }) { return <section className={`settings-group ${danger ? 'danger-group' : ''}`}><h3>{title}</h3><div>{children}</div></section>; }
 
-export default function SettingsPanel({ kind, profile, email, server, onBack, onSignOut, signingOut, authError }) {
+export default function SettingsPanel({ kind, profile, email, server, onBack, onDeleteServer, onSignOut, signingOut, authError }) {
   const [notice, setNotice] = useState('');
   const [interestsOpen, setInterestsOpen] = useState(false);
   const comingSoon = () => setNotice('This option is coming soon.');
@@ -31,7 +31,7 @@ export default function SettingsPanel({ kind, profile, email, server, onBack, on
       <SettingsGroup title="Members"><SettingsRow icon="members" label="View All Members" onClick={comingSoon}><span className="setting-badge">1,284</span></SettingsRow><SettingsRow icon="invite" label="Invites" value="mancord / gaminghub" onClick={comingSoon}/><SettingsRow icon="bans" label="Bans" value="3 banned" onClick={comingSoon}/></SettingsGroup>
       <SettingsGroup title="Roles & Permissions"><SettingsRow icon="roles" label="Manage Roles" onClick={comingSoon}><span className="setting-roles"><i>Admin</i><i>Moderator</i><i>Member</i></span></SettingsRow><SettingsRow icon="permissions" label="Default Permissions" value="Standard" onClick={comingSoon}/><SettingsRow icon="bots" label="Bot Integrations" value="2 active" onClick={comingSoon}/></SettingsGroup>
       <SettingsGroup title="Channels"><SettingsRow icon="channels" label="Manage Channels" value="7 channels" onClick={comingSoon}/><SettingsRow icon="categories" label="Channel Categories" value="2 categories" onClick={comingSoon}/></SettingsGroup>
-      <SettingsGroup title="Danger Zone" danger><SettingsRow icon="transfer" label="Transfer Ownership" danger onClick={comingSoon}/><SettingsRow icon="trash" label="Delete Server" danger onClick={comingSoon}/></SettingsGroup>
+      <SettingsGroup title="Danger Zone" danger><SettingsRow icon="transfer" label="Transfer Ownership" danger onClick={comingSoon}/><SettingsRow icon="trash" label="Delete Server" danger onClick={onDeleteServer}/></SettingsGroup>
     </> : <>
       <SettingsGroup title="Account"><SettingsRow icon="user" label="Display Name" value={displayName} onClick={comingSoon}/><SettingsRow icon="mail" label="Email" value={email || 'Signed in'} onClick={comingSoon}/><SettingsRow icon="lock" label="Password" value="••••••••" onClick={comingSoon}/></SettingsGroup>
       <SettingsGroup title="Privacy"><SettingsRow icon="status" label="Online Status" value="Online" onClick={comingSoon}><span className="setting-online"/></SettingsRow><SettingsRow icon="dm" label="Who Can DM Me" value="Friends Only" onClick={comingSoon}/><SettingSwitch icon="activity" label="Show Activity Status" checked/></SettingsGroup>
