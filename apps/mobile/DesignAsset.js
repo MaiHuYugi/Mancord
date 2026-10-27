@@ -4,6 +4,17 @@ import { SvgXml } from 'react-native-svg';
 import { readSvgAsset } from './svgAsset';
 
 const assets = {
+  textBackground: require('../web/public/assets/text-channel/background.svg'),
+  textHeader: require('../web/public/assets/text-channel/header.svg'),
+  textBack: require('../web/public/assets/text-channel/back.svg'),
+  textOnline: require('../web/public/assets/text-channel/online.svg'),
+  textSearch: require('../web/public/assets/text-channel/search.svg'),
+  textComposer: require('../web/public/assets/text-channel/composer.svg'),
+  textPlus: require('../web/public/assets/text-channel/plus.svg'),
+  textDivider: require('../web/public/assets/text-channel/divider.svg'),
+  textSmile: require('../web/public/assets/text-channel/smile.svg'),
+  textEye: require('../web/public/assets/text-channel/eye.svg'),
+  textMouth: require('../web/public/assets/text-channel/mouth.svg'),
   authUser: require('../web/public/assets/auth/user.svg'),
   authMail: require('../web/public/assets/auth/mail.svg'),
   authLock: require('../web/public/assets/auth/lock.svg'),

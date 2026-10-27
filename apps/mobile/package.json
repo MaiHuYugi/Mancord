@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "test": "node --experimental-vm-modules --test profileMedia.test.mjs svgAsset.test.mjs"
+    "test": "node --experimental-vm-modules --test profileMedia.test.mjs svgAsset.test.mjs textChannel.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",

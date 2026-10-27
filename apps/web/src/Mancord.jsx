@@ -1,8 +1,8 @@
-import Avatar from './Avatar.jsx';
+import TextChannel from './TextChannel.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
 import CommunityNavigation, { ServerRail } from './CommunityNavigation.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { Hash, Mic, Send, Settings, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Mic, Settings, Sparkles, X } from 'lucide-react';
 
 export default function Mancord({ profile, email, onSignOut, signingOut = false, authError = null }) {
 
@@ -16,8 +16,15 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [createChannelType, setCreateChannelType] = useState(null);
   const [channelName, setChannelName] = useState('');
-  const [channelDraft, setChannelDraft] = useState('');
-  const [channelMessages, setChannelMessages] = useState({});
+  const [channelDrafts, setChannelDrafts] = useState({});
+  const [messageError, setMessageError] = useState('');
+  const [channelMessages, setChannelMessages] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`mancord:messages:${profile.id}`) || '{}');
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+      return Object.fromEntries(Object.entries(saved).map(([id, messages]) => [id, Array.isArray(messages) ? messages.filter(message => message && typeof message.text === 'string' && typeof message.id === 'string' && Number.isFinite(Date.parse(message.createdAt))) : []]));
+    } catch { return {}; }
+  });
   const [groupName, setGroupName] = useState('');
   const [groupIcon, setGroupIcon] = useState('');
   const servers = groups.map(group => ({ ...group, textChannels: group.textChannels || [], voiceChannels: group.voiceChannels || [] }));
@@ -61,22 +68,39 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
     setChannelName('');
     setMobileNav(false);
   }
-  function submitMessage(event) {
-    event.preventDefault();
-    const text = channelDraft.trim();
-    if (!text || !channel || !server || !server.textChannels.some(item => item.id === channel.id)) return;
-    setChannelMessages(current => ({ ...current, [channel.id]: [...(current[channel.id] || []), text] }));
-    setChannelDraft('');
+  function saveMessages(next) {
+    try {
+      localStorage.setItem(`mancord:messages:${profile.id}`, JSON.stringify(next));
+      setMessageError('');
+      return true;
+    } catch {
+      setMessageError('Could not save your message on this device. Free up browser storage and try again.');
+      return false;
+    }
+  }
+  function submitMessage(attachment = null) {
+    const text = (channelDrafts[activeChannelId] || '').trim();
+    if ((!text && !attachment) || !channel || !server?.textChannels.some(item => item.id === channel.id)) return false;
+    const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const message = { id, text, createdAt: new Date().toISOString(), ...(attachment ? { attachment } : {}) };
+    const next = { ...channelMessages, [channel.id]: [...(channelMessages[channel.id] || []), message] };
+    if (!saveMessages(next)) return false;
+    setChannelMessages(next);
+    setChannelDrafts(current => ({ ...current, [channel.id]: '' }));
+    return true;
   }
   function deleteGroup(groupId) {
     const groupToDelete = groups.find(group => group.id === groupId);
     if (!groupToDelete) return;
     const channelIds = [...(groupToDelete.textChannels || []), ...(groupToDelete.voiceChannels || [])].map(item => item.id);
     setGroups(current => current.filter(group => group.id !== groupId));
-    setChannelMessages(current => Object.fromEntries(Object.entries(current).filter(([id]) => !channelIds.includes(id))));
+    const remainingMessages = Object.fromEntries(Object.entries(channelMessages).filter(([id]) => !channelIds.includes(id)));
+    setChannelMessages(remainingMessages);
+    saveMessages(remainingMessages);
+    setChannelDrafts(current => Object.fromEntries(Object.entries(current).filter(([id]) => !channelIds.includes(id))));
     setServerIndex(0);
     setActiveChannelId('');
-    setChannelDraft('');
+
     setSettingsOpen(false);
     setSettingsKind('profile');
     setMobileNav(true);
@@ -84,9 +108,15 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
 
   return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"}`}>
     <ServerRail servers={servers} selected={serverIndex} onSelect={index=>{setServerIndex(index);setActiveChannelId('');setMobileNav(true);}} onCreate={()=>setCreateGroupOpen(true)} profile={profile} onSettings={()=>openSettings()}/>
-    <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onSelectChannel={id=>{setActiveChannelId(id);setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
+    <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onSelectChannel={id=>{setActiveChannelId(id);setMessageError('');setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
 
-    <section className="chat-column">{!server && groups.length===0 && <div className="channel-welcome mancord-welcome"><h1>Welcome to Mancord</h1></div>}{server && <>{channel && <header className="topbar"><div className="top-channel">{channel.type === 'voice' || server.voiceChannels.some(item=>item.id===channel.id) ? <Mic size={18}/> : <Hash size={18}/>}<strong>{channel.name}</strong></div><div className="topbar-actions"><button type="button" className="settings-trigger" aria-label="Group settings" title="Group settings" onClick={()=>openSettings('server')}><Settings size={19}/></button></div></header>}{channel && (server.textChannels.some(item=>item.id===channel.id) ? <><div className="message-list channel-message-list">{(channelMessages[channel.id] || []).map((message,index)=><article className="message" key={`${channel.id}-${index}`}><Avatar person={{avatar:profile.username?.[0]?.toUpperCase() || 'Y',color:'blue'}}/><div className="message-content"><div className="message-byline"><strong>{profile.display_name || profile.username}</strong><span>Just now</span></div><p>{message}</p></div></article>)}</div><form className="composer" onSubmit={submitMessage}><input value={channelDraft} onChange={event=>setChannelDraft(event.target.value)} placeholder={`Message #${channel.name}`} aria-label={`Message ${channel.name}`}/><button type="submit" aria-label="Send message"><Send size={18}/></button></form></> : <div className="group-empty-space"/> )}{!channel && <div className="group-empty-space"/>}</>}</section>
+    <section className="chat-column">
+      {!server && groups.length === 0 && <div className="channel-welcome mancord-welcome"><h1>Welcome to Mancord</h1></div>}
+      {server && channel && (server.textChannels.some(item => item.id === channel.id)
+        ? <TextChannel key={channel.id} channel={channel} profile={profile} messages={channelMessages[channel.id] || []} draft={channelDrafts[channel.id] || ''} onDraftChange={value => setChannelDrafts(current => ({ ...current, [channel.id]: value }))} onSend={submitMessage} onBack={() => { setActiveChannelId(''); setMobileNav(true); }} error={messageError}/>
+        : <><header className="topbar"><button type="button" className="mobile-menu" aria-label="Back to channels" onClick={() => setMobileNav(true)}><ArrowLeft size={20}/></button><div className="top-channel"><Mic size={18}/><strong>{channel.name}</strong></div><div className="topbar-actions"><button type="button" className="settings-trigger" aria-label="Group settings" onClick={() => openSettings('server')}><Settings size={19}/></button></div></header><div className="group-empty-space"/></>)}
+      {server && !channel && <div className="group-empty-space"/>}
+    </section>
     <dialog ref={settingsDialog} className="settings-dialog" aria-label="Settings" onClose={()=>setSettingsOpen(false)}>
       <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={server || servers[serverIndex - 1]} onBack={()=>setSettingsOpen(false)} onDeleteServer={()=>server && deleteGroup(server.id)} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
     </dialog>

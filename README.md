@@ -1,6 +1,6 @@
 # Mancord
 
-Mancord is a cross-platform community chat starter: React + Vite for web and Expo + React Native for Android. Email/password authentication and first-run profile setup use Supabase Auth and Storage. The current chat clients still show local sample messages; synchronized chat, voice calls, and screen sharing need further service wiring.
+Mancord is a cross-platform community chat starter: React + Vite for web and Expo + React Native for Android. Email/password authentication and first-run profile setup use Supabase Auth and Storage. Text messages are saved per account and channel on the current device; synchronized chat, voice calls, and screen sharing need further service wiring.
 
 ## Run the clients
 
@@ -30,6 +30,6 @@ The web and Android interfaces follow the Figma reference for welcome, login, re
 
 Suggested avatars use the existing profile-media upload flow. Interests are saved on the current device. Account editing, privacy/notification controls, server administration, and account deletion remain previews: unavailable actions show a coming-soon message or disabled controls. These UI changes do not add service integrations or change the Supabase schema.
 
-The current step adds email/password signup and login, required first-run username and profile media setup, and sign-out on web and Android. The surrounding chat view remains a visual prototype: messages are local sample data. Multi-user chat still needs Supabase message reads/writes and Realtime subscriptions. Voice, camera, and screen sharing need a WebRTC SFU/signaling service and native platform permissions; Supabase Realtime alone does not provide that media layer. The UI does not promise 4K streaming.
+The current step adds email/password signup and login, required first-run username and profile media setup, and sign-out on web and Android. On web and Android, selecting a text channel opens the Figma text channel layout with the selected channel name, profile media, and message timestamps. The send button posts a message. On web, Enter sends and Shift+Enter adds a new line. On narrow web screens and Android, chat fills the screen and the composer stays above the keyboard. The header searches the current channel's messages, the smile button inserts emoji, and the plus button attaches images, PDFs, or text files up to 1 MB. Messages and attachments are saved on the current device per account and channel, and text drafts stay separate while switching channels. The online indicator represents the current user; shared presence and multi-user chat still need Supabase message reads/writes and Realtime subscriptions. Voice, camera, and screen sharing need a WebRTC SFU/signaling service and native platform permissions; Supabase Realtime alone does not provide that media layer. The UI does not promise 4K streaming.
 
 The SQL policies provide a starting point for member-scoped text chat. Review them alongside the actual invite, moderation, account deletion, and role-management flows before production. Service free-tier limits and billing can change; check current provider terms before launch.
