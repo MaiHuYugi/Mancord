@@ -35,7 +35,7 @@ export default function Mancord({ profile, email, onProfileChange, onSignOut, si
   },[profile.id,profile.username]);
 
   async function loadServers() {
-    const { data, error } = await supabase.from('servers').select('id,name,owner_id,created_at,channels(id,name,kind,position),server_members(user_id)').order('created_at');
+    const { data, error } = await supabase.from('servers').select('id,name,owner_id,icon_url,icon_media_type,created_at,channels(id,name,kind,position),server_members(user_id)').order('created_at');
     if (error) { setMessageError(`Could not load servers: ${error.message}`); return []; }
     const loaded = (data || []).map(item => ({ ...item, member_count:(item.server_members||[]).length, glyph:item.name.slice(0,2).toUpperCase(), color:'#35205c', textChannels:(item.channels||[]).filter(channel=>channel.kind==='text'||channel.kind==='announcement'), voiceChannels:(item.channels||[]).filter(channel=>channel.kind==='voice') }));
     setGroups(loaded); setMessageError(''); return loaded;

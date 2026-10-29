@@ -24,6 +24,7 @@ export default function SettingsPanel({ kind, profile, email, server, onBack, on
   const [value, setValue] = useState('');
   const [inviteUsers,setInviteUsers]=useState([]);
   const [inviteLoading,setInviteLoading]=useState(false);
+  const [serverMembers,setServerMembers]=useState([]);
   const [addingUser,setAddingUser]=useState(null);
   const comingSoon = () => setNotice('This option is coming soon.');
   const isServer = kind === 'server';
@@ -33,11 +34,23 @@ export default function SettingsPanel({ kind, profile, email, server, onBack, on
   const beginEdit = (type,item) => { setEditing({type,id:item.id}); setValue(item.name); };
   const saveEdit = event => { event.preventDefault(); const name=value.trim(); if(!name)return; if(editing.type==='channel')onRenameChannel?.(server.id,editing.id,name); else onRenameCategory?.(server.id,editing.id,name); setEditing(null); };
   useEffect(()=>{
-    if(manage!=='invite-users')return;
+    if(manage!=='invite-users'&&manage!=='members')return;
     let active=true;setInviteLoading(true);
-    supabase.from('profiles').select('id,username,display_name,avatar_url,avatar_media_type').neq('id',profile.id).order('username').then(({data,error})=>{if(!active)return;setInviteUsers(error?[]:(data||[]));if(error)setNotice(error.message);setInviteLoading(false);});
-    return()=>{active=false;};
-  },[manage,profile.id]);
+    const load=async()=>{
+      if(manage==='invite-users'){
+        const {data,error}=await supabase.from('profiles').select('id,username,display_name,avatar_url,avatar_media_type').neq('id',profile.id).order('username');
+        if(!active)return;setInviteUsers(error?[]:(data||[]));if(error)setNotice(error.message);
+      }else{
+        const {data,error}=await supabase.from('server_members').select('user_id,role').eq('server_id',server.id);
+        if(error){if(active)setNotice(error.message);}else if(data?.length){
+          const {data:profiles,error:profileError}=await supabase.from('profiles').select('id,username,display_name,avatar_url,avatar_media_type').in('id',data.map(item=>item.user_id)).order('username');
+          if(!active)return;setServerMembers(profileError?[]:(profiles||[]).map(person=>({...person,serverRole:data.find(item=>item.user_id===person.id)?.role||'member'})));if(profileError)setNotice(profileError.message);
+        }else if(active)setServerMembers([]);
+      }
+      if(active)setInviteLoading(false);
+    };
+    load();return()=>{active=false;};
+  },[manage,profile.id,server?.id]);
   async function addMember(user){setAddingUser(user.id);const result=await onAddMember?.(server.id,user.id);setAddingUser(null);const error=result?.error;if(error)setNotice(error.message);else setNotice(`${user.display_name||user.username} added to ${server.name}.`);}
   async function saveProfile(event) {
     event.preventDefault();
@@ -51,7 +64,8 @@ export default function SettingsPanel({ kind, profile, email, server, onBack, on
     onProfileChange?.(data);setProfileEditor(null);setNotice('Profile updated.');
   }
   if (manage) return <section className="settings-page server-settings-page">
-    <header className="settings-page-header"><button type="button" aria-label="Back to server settings" onClick={()=>{setManage(null);setEditing(null);}}><DesignIcon name="serverBack"/></button><h2>{manage==='channels'?'Manage Channels':manage==='invite-users'?'Invite Users':'Channel Categories'}</h2><span/></header>
+    <header className="settings-page-header"><button type="button" aria-label="Back to server settings" onClick={()=>{setManage(null);setEditing(null);}}><DesignIcon name="serverBack"/></button><h2>{manage==='channels'?'Manage Channels':manage==='invite-users'?'Invite Users':manage==='members'?'Server Members':'Channel Categories'}</h2><span/></header>
+    {manage==='members'?<div className="invite-user-list">{inviteLoading?<p className="channel-manager-empty">Loading members…</p>:serverMembers.length===0?<p className="channel-manager-empty">This server has no members yet.</p>:serverMembers.map(user=><div className="invite-user-row member-user-row" key={user.id}><Avatar person={{mediaUrl:user.avatar_url,mediaType:user.avatar_media_type,avatar:user.username?.[0]?.toUpperCase()||'?',color:'blue'}}/><span><strong>{user.display_name||user.username}</strong><small>@{user.username}</small></span><small className="member-role">{user.serverRole}</small></div>)}</div>:null}
     {manage==='invite-users'?<div className="invite-user-list">{inviteLoading?<p className="channel-manager-empty">Loading users…</p>:inviteUsers.length===0?<p className="channel-manager-empty">No other users are registered yet.</p>:inviteUsers.map(user=>{const member=(server.server_members||[]).some(item=>item.user_id===user.id);return <div className="invite-user-row" key={user.id}><Avatar person={{mediaUrl:user.avatar_url,mediaType:user.avatar_media_type,avatar:user.username?.[0]?.toUpperCase()||'?',color:'blue'}}/><span><strong>{user.display_name||user.username}</strong><small>@{user.username}</small></span><button type="button" disabled={member||addingUser===user.id} onClick={()=>addMember(user)}>{member?'Added':addingUser===user.id?'Adding…':'Add'}</button></div>;})}</div>:null}
     {manage==='categories'&&<button type="button" className="channel-manager-add" onClick={onCreateCategory}>＋ Add category</button>}
     {(manage==='channels'?channels:categories).length===0?<p className="channel-manager-empty">{manage==='channels'?'This server has no channels yet.':'This server has no categories yet.'}</p>:(manage==='channels'?channels:categories).map(item=><div className="channel-manager-row" key={item.id}>
@@ -64,13 +78,11 @@ export default function SettingsPanel({ kind, profile, email, server, onBack, on
     {notice && <p className="settings-notice" role="status">{notice}</p>}
     {isServer ? <>
       <SettingsGroup title="Overview"><SettingsRow icon="serverName" label="Server Name" value={server.name} onClick={comingSoon}/><SettingsRow icon="description" label="Server Description" value={server.description||''} onClick={comingSoon}/></SettingsGroup>
-      <SettingsGroup title="Members"><SettingsRow icon="members" label="View All Members" onClick={comingSoon}><span className="setting-badge">{server.member_count||0}</span></SettingsRow><SettingsRow icon="invite" label="Invite Users" onClick={()=>setManage('invite-users')}/><SettingsRow icon="bans" label="Bans" value="3 banned" onClick={comingSoon}/></SettingsGroup>
+      <SettingsGroup title="Members"><SettingsRow icon="members" label="View All Members" onClick={()=>setManage('members')}><span className="setting-badge">{server.member_count||0}</span></SettingsRow><SettingsRow icon="invite" label="Invite Users" onClick={()=>setManage('invite-users')}/></SettingsGroup>
       <SettingsGroup title="Channels"><SettingsRow icon="channels" label="Manage Channels" value={`${channels.length} channels`} onClick={()=>setManage('channels')}/></SettingsGroup>
       <SettingsGroup title="Danger Zone" danger><SettingsRow icon="trash" label="Delete Server" danger onClick={onDeleteServer}/></SettingsGroup>
     </> : <>
       <SettingsGroup title="Account"><SettingsRow icon="user" label="Username & Display Name" value={`@${profile.username}`} onClick={()=>setProfileEditor({username:profile.username||'',displayName:profile.display_name||profile.username||''})}/><SettingsRow icon="mail" label="Email" value={email || 'Signed in'} onClick={comingSoon}/><SettingsRow icon="lock" label="Password" value="••••••••" onClick={comingSoon}/></SettingsGroup>
-      <SettingsGroup title="Privacy"><SettingsRow icon="status" label="Online Status" value="Online" onClick={comingSoon}><span className="setting-online"/></SettingsRow><SettingsRow icon="dm" label="Who Can DM Me" value="Friends Only" onClick={comingSoon}/><SettingSwitch icon="activity" label="Show Activity Status" checked/></SettingsGroup>
-      <SettingsGroup title="Notifications"><SettingSwitch icon="notifications" label="Push Notifications" checked/><SettingSwitch icon="mention" label="Mention Alerts" checked/><SettingSwitch icon="announcement" label="Server Announcements" checked={false}/></SettingsGroup>
       <SettingsGroup title="Developer Option"><SettingSwitch label="Developer mode" checked={false}/></SettingsGroup>
       <SettingsGroup title="Danger Zone" danger><SettingsRow icon="trash" label="Delete Account" danger onClick={comingSoon}/></SettingsGroup>
       {authError && <div className="logout-error" role="alert">{authError}</div>}
