@@ -1,5 +1,6 @@
 import TextChannel from './TextChannel.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
+import DirectMessages from './DirectMessages.jsx';
 import CommunityNavigation, { ServerRail } from './CommunityNavigation.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Mic, Settings, Sparkles, X } from 'lucide-react';
@@ -10,6 +11,7 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
   const [deafened, setDeafened] = useState(false);
 
   const [mobileNav, setMobileNav] = useState(true);
+  const [dmOpen, setDmOpen] = useState(false);
   const [groups, setGroups] = useState(() => { try { return JSON.parse(localStorage.getItem(`mancord:groups:${profile.id}`)) || []; } catch { return []; } });
   const [serverIndex, setServerIndex] = useState(0);
   const [activeChannelId, setActiveChannelId] = useState('');
@@ -105,20 +107,35 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
     setSettingsKind('profile');
     setMobileNav(true);
   }
+  function renameChannel(groupId, channelId, name) {
+    setGroups(current => current.map(group => group.id !== groupId ? group : { ...group, textChannels: (group.textChannels || []).map(item => item.id === channelId ? { ...item, name } : item), voiceChannels: (group.voiceChannels || []).map(item => item.id === channelId ? { ...item, name } : item) }));
+  }
+  function deleteChannel(groupId, channelId) {
+    setGroups(current => current.map(group => group.id !== groupId ? group : { ...group, textChannels: (group.textChannels || []).filter(item => item.id !== channelId), voiceChannels: (group.voiceChannels || []).filter(item => item.id !== channelId) }));
+    const remaining = { ...channelMessages }; delete remaining[channelId]; setChannelMessages(remaining); saveMessages(remaining);
+    setChannelDrafts(current => { const next = { ...current }; delete next[channelId]; return next; });
+    if (activeChannelId === channelId) { setActiveChannelId(''); setMobileNav(true); }
+  }
+  function renameCategory(groupId, categoryId, name) { setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: (group.categories || []).map(item => item.id === categoryId ? { ...item, name } : item) } : group)); }
+  function deleteCategory(groupId, categoryId) { setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: (group.categories || []).filter(item => item.id !== categoryId) } : group)); }
+  function createCategory(groupId) { const category = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: 'New category' }; setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: [...(group.categories || []), category] } : group)); }
 
   return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"}`}>
-    <ServerRail servers={servers} selected={serverIndex} onSelect={index=>{setServerIndex(index);setActiveChannelId('');setMobileNav(true);}} onCreate={()=>setCreateGroupOpen(true)} profile={profile} onSettings={()=>openSettings()}/>
-    <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onSelectChannel={id=>{setActiveChannelId(id);setMessageError('');setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
+    <ServerRail servers={servers} selected={serverIndex} onHome={()=>{setDmOpen(true);setMobileNav(false);}} onSelect={index=>{setDmOpen(false);setServerIndex(index);setActiveChannelId('');setMobileNav(true);}} onCreate={()=>setCreateGroupOpen(true)} profile={profile} onSettings={()=>openSettings()}/>
+    <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onDirectMessages={()=>{setDmOpen(true);setMobileNav(false);}} onSelectChannel={id=>{setDmOpen(false);setActiveChannelId(id);setMessageError('');setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
 
     <section className="chat-column">
+      {dmOpen && <DirectMessages profile={profile} onBackChannels={()=>{setDmOpen(false);setMobileNav(true);}}/>}
+      {!dmOpen && <>
       {!server && groups.length === 0 && <div className="channel-welcome mancord-welcome"><h1>Welcome to Mancord</h1></div>}
       {server && channel && (server.textChannels.some(item => item.id === channel.id)
         ? <TextChannel key={channel.id} channel={channel} profile={profile} messages={channelMessages[channel.id] || []} draft={channelDrafts[channel.id] || ''} onDraftChange={value => setChannelDrafts(current => ({ ...current, [channel.id]: value }))} onSend={submitMessage} onBack={() => { setActiveChannelId(''); setMobileNav(true); }} error={messageError}/>
         : <><header className="topbar"><button type="button" className="mobile-menu" aria-label="Back to channels" onClick={() => setMobileNav(true)}><ArrowLeft size={20}/></button><div className="top-channel"><Mic size={18}/><strong>{channel.name}</strong></div><div className="topbar-actions"><button type="button" className="settings-trigger" aria-label="Group settings" onClick={() => openSettings('server')}><Settings size={19}/></button></div></header><div className="group-empty-space"/></>)}
       {server && !channel && <div className="group-empty-space"/>}
+      </>}
     </section>
     <dialog ref={settingsDialog} className="settings-dialog" aria-label="Settings" onClose={()=>setSettingsOpen(false)}>
-      <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={server || servers[serverIndex - 1]} onBack={()=>setSettingsOpen(false)} onDeleteServer={()=>server && deleteGroup(server.id)} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
+      <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={server || servers[serverIndex - 1]} onBack={()=>setSettingsOpen(false)} onDeleteServer={()=>server && deleteGroup(server.id)} onRenameChannel={renameChannel} onDeleteChannel={deleteChannel} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory} onCreateCategory={()=>server && createCategory(server.id)} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
     </dialog>
     {notice && <div className="toast"><Sparkles size={15} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss"><X size={14} /></button></div>}
     {createGroupOpen && <div className="group-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setCreateGroupOpen(false);}}><form className="group-create-dialog" onSubmit={createGroup} aria-labelledby="create-group-title"><button type="button" className="group-create-close" aria-label="Close" onClick={()=>setCreateGroupOpen(false)}><X size={18}/></button><h2 id="create-group-title">Create a group</h2><p>Choose a name and, if you like, an icon.</p><label>Group name<input autoFocus required maxLength={40} value={groupName} onChange={event=>setGroupName(event.target.value)} placeholder="Group name"/></label><fieldset className="group-icon-picker"><legend>Group icon <span>Optional</span></legend><div>{[String.fromCodePoint(0x1F3AE),String.fromCodePoint(0x1F3B5),String.fromCodePoint(0x1F4BB),String.fromCodePoint(0x1F916),String.fromCodePoint(0x1F3A8),String.fromCodePoint(0x1F4DA),String.fromCodePoint(0x1F3C6),String.fromCodePoint(0x1F3AC),String.fromCodePoint(0x1F30D),String.fromCodePoint(0x1F355),String.fromCodePoint(0x2728),String.fromCodePoint(0x1F331)].map(icon=><button key={icon} type="button" className={groupIcon===icon?'selected':''} aria-label={icon} aria-pressed={groupIcon===icon} onClick={()=>setGroupIcon(groupIcon===icon?'':icon)}>{icon}</button>)}</div></fieldset><button className="group-create-submit" type="submit">Save group</button></form></div>}

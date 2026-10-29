@@ -133,6 +133,31 @@ export default function AuthFlow() {
     }catch(e){setError(e.message||'Could not update your avatar. Please try again.');}finally{setBusy(false);}
   }
 
+  async function saveServerIcon(file, serverId){
+    if(!file?.uri)throw new Error('Choose an image or video first.');
+    setError('');setBusy(true);
+    try{
+      if(!accepted.includes(file.mimeType))throw new Error('Choose a JPEG, PNG, WebP, GIF, MP4, or WebM file.');
+      const contents=await readProfileMedia(file);
+      if(contents.byteLength>maxSize)throw new Error('Server icon media must be 8 MB or smaller.');
+      const ext=extensions[file.mimeType];
+      const path=`${session.user.id}/servers/${serverId}/${Date.now()}.${ext}`;
+      const {error:uploadError}=await supabase.storage.from('profile-media').upload(path,contents,{contentType:file.mimeType,cacheControl:'3600',upsert:false});
+      if(uploadError)throw uploadError;
+      return {icon_url:supabase.storage.from('profile-media').getPublicUrl(path).data.publicUrl,icon_media_type:file.mimeType};
+    }catch(e){setError(e.message||'Could not update the server icon.');throw e;}finally{setBusy(false);}
+  }
+
+  async function pickServerIcon(kind, serverId){
+    const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if(!permission.granted)throw new Error('Allow photo and video access to choose a server icon.');
+    const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:kind==='video'?['videos']:['images'],allowsEditing:false,quality:1});
+    if(result.canceled)return null;
+    const file=result.assets?.[0];if(!file)return null;
+    const mimeType=file.mimeType||(kind==='video'?'video/mp4':'image/jpeg');
+    return saveServerIcon({uri:file.uri,name:file.fileName||`server-icon-${Date.now()}.${extensions[mimeType]||'jpg'}`,mimeType,size:file.fileSize},serverId);
+  }
+
   async function pickAvatar(kind){
     setError('');
     try{
@@ -167,7 +192,7 @@ export default function AuthFlow() {
   if(session&&!profile&&error)return <AuthScreen recoveryError={error} onSignOut={signOut}/>;
   if(session&&profile&&!profile.profile_completed)return <ProfileScreen email={session.user.email} username={username} setUsername={setUsername} media={media} chooseMedia={chooseMedia} chooseAvatar={chooseAvatar} onSignOut={signOut} finish={finishProfile} busy={busy} error={error}/>;
   if(session&&profile?.profile_completed&&interestsOpen)return <InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/>;
-  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} onAvatarImage={()=>pickAvatar('image')} onAvatarVideo={()=>pickAvatar('video')} onAvatarCamera={saveAvatar}/>;
+  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} onAvatarImage={()=>pickAvatar('image')} onAvatarVideo={()=>pickAvatar('video')} onAvatarCamera={saveAvatar} onPickServerIcon={pickServerIcon}/>;
   return <AuthScreen mode={mode} setMode={value=>{setMode(value);setError('');setNotice('');}} email={email} setEmail={setEmail} password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} username={username} setUsername={setUsername} submit={submitAuth} busy={busy} error={error} notice={notice}/>;
 }
 

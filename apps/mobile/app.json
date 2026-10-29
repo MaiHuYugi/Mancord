@@ -9,7 +9,7 @@
     "android": { "package": "com.mancord.app", "adaptiveIcon": { "backgroundColor": "#b5a5ff" } },
     "plugins": [
       ["expo-camera", { "cameraPermission": "Allow Mancord to use your camera to take an avatar photo." }],
-      ["expo-image-picker", { "photosPermission": "Allow Mancord to access your photos and videos for your avatar." }]
+      ["expo-image-picker", { "photosPermission": "Allow Mancord to access your photos and videos for profile and server icons." }]
     ]
   }
 }
