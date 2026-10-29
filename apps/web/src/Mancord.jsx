@@ -1,18 +1,20 @@
 import TextChannel from './TextChannel.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
 import DirectMessages from './DirectMessages.jsx';
+import { supabase } from './supabase.js';
 import CommunityNavigation, { ServerRail } from './CommunityNavigation.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Mic, Settings, Sparkles, X } from 'lucide-react';
 
-export default function Mancord({ profile, email, onSignOut, signingOut = false, authError = null }) {
+export default function Mancord({ profile, email, onProfileChange, onSignOut, signingOut = false, authError = null }) {
 
   const [muted, setMuted] = useState(false);
   const [deafened, setDeafened] = useState(false);
 
   const [mobileNav, setMobileNav] = useState(true);
   const [dmOpen, setDmOpen] = useState(false);
-  const [groups, setGroups] = useState(() => { try { return JSON.parse(localStorage.getItem(`mancord:groups:${profile.id}`)) || []; } catch { return []; } });
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [serverIndex, setServerIndex] = useState(0);
   const [activeChannelId, setActiveChannelId] = useState('');
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
@@ -20,20 +22,39 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
   const [channelName, setChannelName] = useState('');
   const [channelDrafts, setChannelDrafts] = useState({});
   const [messageError, setMessageError] = useState('');
-  const [channelMessages, setChannelMessages] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(`mancord:messages:${profile.id}`) || '{}');
-      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
-      return Object.fromEntries(Object.entries(saved).map(([id, messages]) => [id, Array.isArray(messages) ? messages.filter(message => message && typeof message.text === 'string' && typeof message.id === 'string' && Number.isFinite(Date.parse(message.createdAt))) : []]));
-    } catch { return {}; }
-  });
+  const [channelMessages, setChannelMessages] = useState({});
   const [groupName, setGroupName] = useState('');
   const [groupIcon, setGroupIcon] = useState('');
   const servers = groups.map(group => ({ ...group, textChannels: group.textChannels || [], voiceChannels: group.voiceChannels || [] }));
   const server = serverIndex ? servers[serverIndex - 1] : null;
   const channel = server && [...server.textChannels, ...server.voiceChannels].find(item => item.id === activeChannelId);
 
-  useEffect(() => { localStorage.setItem(`mancord:groups:${profile.id}`, JSON.stringify(groups)); }, [groups, profile.id]);
+  useEffect(()=>{
+    const presence=supabase.channel('mancord-online-users',{config:{presence:{key:profile.id}}}).on('presence',{event:'sync'},()=>setOnlineUsers(Object.values(presence.presenceState()).flat().map(item=>item.user_id))).subscribe(async status=>{if(status==='SUBSCRIBED')await presence.track({user_id:profile.id,username:profile.username});});
+    return()=>{supabase.removeChannel(presence);};
+  },[profile.id,profile.username]);
+
+  async function loadServers() {
+    const { data, error } = await supabase.from('servers').select('id,name,owner_id,created_at,channels(id,name,kind,position),server_members(user_id)').order('created_at');
+    if (error) { setMessageError(`Could not load servers: ${error.message}`); return []; }
+    const loaded = (data || []).map(item => ({ ...item, member_count:(item.server_members||[]).length, glyph:item.name.slice(0,2).toUpperCase(), color:'#35205c', textChannels:(item.channels||[]).filter(channel=>channel.kind==='text'||channel.kind==='announcement'), voiceChannels:(item.channels||[]).filter(channel=>channel.kind==='voice') }));
+    setGroups(loaded); setMessageError(''); return loaded;
+  }
+  useEffect(() => {
+    let active=true;
+    loadServers();
+    const channel=supabase.channel(`server-list:${profile.id}`).on('postgres_changes',{event:'*',schema:'public',table:'server_members'},()=>{if(active)loadServers();}).on('postgres_changes',{event:'*',schema:'public',table:'servers'},()=>{if(active)loadServers();}).on('postgres_changes',{event:'*',schema:'public',table:'channels'},()=>{if(active)loadServers();}).subscribe();
+    return ()=>{active=false;supabase.removeChannel(channel);};
+  },[profile.id]);
+  useEffect(()=>{
+    const token=new URLSearchParams(window.location.search).get('invite');
+    if(!token)return;
+    supabase.rpc('join_server_by_invite',{invite_token:token}).then(async({data:id,error})=>{
+      window.history.replaceState({},'',window.location.pathname+window.location.hash);
+      if(error){setMessageError(error.message);return;}
+      const loaded=await loadServers();setServerIndex(loaded.findIndex(item=>item.id===id)+1);setDmOpen(false);setMobileNav(true);
+    });
+  },[profile.id]);
   const [settingsKind, setSettingsKind] = useState('profile');
   const [notice, setNotice] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -47,59 +68,53 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
   function openSettings(kind = 'profile') { setSettingsKind(kind); setSettingsOpen(true); }
 
   function toast(text) { setNotice(text); window.setTimeout(() => setNotice(''), 2800); }
-  function createGroup(event) {
+  async function createGroup(event) {
     event.preventDefault();
     const name = groupName.trim();
     if (!name) return;
-    const group = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name, glyph: groupIcon || name.slice(0, 2).toUpperCase(), color: '#35205c', textChannels: [], voiceChannels: [] };
-    setGroups(current => [...current, group]);
-    setServerIndex(groups.length + 1);
+    const {data:id,error}=await supabase.rpc('create_server',{server_name:name});
+    if(error){setMessageError(error.message);return;}
+    const loaded=await loadServers(); setServerIndex(loaded.findIndex(item=>item.id===id)+1);
     setActiveChannelId('');
     setGroupName(''); setGroupIcon(''); setCreateGroupOpen(false); setMobileNav(true);
   }
   function openCreateChannel(type) { setCreateChannelType(type); setChannelName(''); }
-  function createChannel(event) {
+  async function createChannel(event) {
     event.preventDefault();
     const name = channelName.trim();
     if (!name || !server || !createChannelType) return;
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const key = createChannelType === 'text' ? 'textChannels' : 'voiceChannels';
-    setGroups(current => current.map(group => group.id === server.id ? { ...group, [key]: [...(group[key] || []), { id, name }] } : group));
-    setActiveChannelId(id);
+    const kind=createChannelType==='text'?'text':'voice';
+    const {data:item,error}=await supabase.from('channels').insert({server_id:server.id,name,kind}).select('id,name,kind,server_id').single();
+    if(error){setMessageError(error.message);return;}
+    setActiveChannelId(item.id);
     setCreateChannelType(null);
     setChannelName('');
     setMobileNav(false);
   }
-  function saveMessages(next) {
-    try {
-      localStorage.setItem(`mancord:messages:${profile.id}`, JSON.stringify(next));
-      setMessageError('');
-      return true;
-    } catch {
-      setMessageError('Could not save your message on this device. Free up browser storage and try again.');
-      return false;
-    }
-  }
-  function submitMessage(attachment = null) {
+  async function submitMessage(attachment = null) {
     const text = (channelDrafts[activeChannelId] || '').trim();
     if ((!text && !attachment) || !channel || !server?.textChannels.some(item => item.id === channel.id)) return false;
-    const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const message = { id, text, createdAt: new Date().toISOString(), ...(attachment ? { attachment } : {}) };
-    const next = { ...channelMessages, [channel.id]: [...(channelMessages[channel.id] || []), message] };
-    if (!saveMessages(next)) return false;
-    setChannelMessages(next);
+    if(attachment){setMessageError('File sharing is not available in live chat yet.');return false;}
+    const {error}=await supabase.from('messages').insert({channel_id:channel.id,author_id:profile.id,body:text});
+    if(error){setMessageError(error.message);return false;}
     setChannelDrafts(current => ({ ...current, [channel.id]: '' }));
+    setMessageError('');
     return true;
   }
-  function deleteGroup(groupId) {
+  useEffect(()=>{
+    if(!channel||!server?.textChannels.some(item=>item.id===channel.id)){setChannelMessages(current=>({...current,[activeChannelId]:[]}));return;}
+    let active=true;
+    const refresh=async()=>{const {data,error}=await supabase.from('messages').select('id,channel_id,author_id,body,created_at,profiles(id,username,display_name,avatar_url,avatar_media_type)').eq('channel_id',channel.id).order('created_at');if(!active)return;if(error){setMessageError(error.message);return;}setChannelMessages(current=>({...current,[channel.id]:(data||[]).map(item=>({id:item.id,text:item.body,createdAt:item.created_at,author:item.profiles}))}));};
+    refresh();
+    const subscription=supabase.channel(`messages:${channel.id}`).on('postgres_changes',{event:'*',schema:'public',table:'messages',filter:`channel_id=eq.${channel.id}`},refresh).subscribe();
+    return()=>{active=false;supabase.removeChannel(subscription);};
+  },[channel?.id,server?.id]);
+  async function deleteGroup(groupId) {
     const groupToDelete = groups.find(group => group.id === groupId);
     if (!groupToDelete) return;
-    const channelIds = [...(groupToDelete.textChannels || []), ...(groupToDelete.voiceChannels || [])].map(item => item.id);
-    setGroups(current => current.filter(group => group.id !== groupId));
-    const remainingMessages = Object.fromEntries(Object.entries(channelMessages).filter(([id]) => !channelIds.includes(id)));
-    setChannelMessages(remainingMessages);
-    saveMessages(remainingMessages);
-    setChannelDrafts(current => Object.fromEntries(Object.entries(current).filter(([id]) => !channelIds.includes(id))));
+    const {error}=await supabase.from('servers').delete().eq('id',groupId);
+    if(error){setMessageError(error.message);return;}
+    await loadServers();
     setServerIndex(0);
     setActiveChannelId('');
 
@@ -107,25 +122,29 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
     setSettingsKind('profile');
     setMobileNav(true);
   }
-  function renameChannel(groupId, channelId, name) {
-    setGroups(current => current.map(group => group.id !== groupId ? group : { ...group, textChannels: (group.textChannels || []).map(item => item.id === channelId ? { ...item, name } : item), voiceChannels: (group.voiceChannels || []).map(item => item.id === channelId ? { ...item, name } : item) }));
+  async function renameChannel(groupId, channelId, name) {
+    const {error}=await supabase.from('channels').update({name}).eq('id',channelId).eq('server_id',groupId);
+    if(error)setMessageError(error.message);
   }
-  function deleteChannel(groupId, channelId) {
-    setGroups(current => current.map(group => group.id !== groupId ? group : { ...group, textChannels: (group.textChannels || []).filter(item => item.id !== channelId), voiceChannels: (group.voiceChannels || []).filter(item => item.id !== channelId) }));
-    const remaining = { ...channelMessages }; delete remaining[channelId]; setChannelMessages(remaining); saveMessages(remaining);
+  async function deleteChannel(groupId, channelId) {
+    const {error}=await supabase.from('channels').delete().eq('id',channelId).eq('server_id',groupId);
+    if(error){setMessageError(error.message);return;}
+    setChannelMessages(current=>{const next={...current};delete next[channelId];return next;});
     setChannelDrafts(current => { const next = { ...current }; delete next[channelId]; return next; });
     if (activeChannelId === channelId) { setActiveChannelId(''); setMobileNav(true); }
   }
   function renameCategory(groupId, categoryId, name) { setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: (group.categories || []).map(item => item.id === categoryId ? { ...item, name } : item) } : group)); }
   function deleteCategory(groupId, categoryId) { setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: (group.categories || []).filter(item => item.id !== categoryId) } : group)); }
   function createCategory(groupId) { const category = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: 'New category' }; setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: [...(group.categories || []), category] } : group)); }
+  async function addServerMember(groupId,userId){const {error}=await supabase.rpc('add_server_member',{target_server:groupId,target_user:userId});if(!error)await loadServers();return {error};}
 
   return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"}`}>
     <ServerRail servers={servers} selected={serverIndex} onHome={()=>{setDmOpen(true);setMobileNav(false);}} onSelect={index=>{setDmOpen(false);setServerIndex(index);setActiveChannelId('');setMobileNav(true);}} onCreate={()=>setCreateGroupOpen(true)} profile={profile} onSettings={()=>openSettings()}/>
     <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onDirectMessages={()=>{setDmOpen(true);setMobileNav(false);}} onSelectChannel={id=>{setDmOpen(false);setActiveChannelId(id);setMessageError('');setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
 
     <section className="chat-column">
-      {dmOpen && <DirectMessages profile={profile} onBackChannels={()=>{setDmOpen(false);setMobileNav(true);}}/>}
+      {messageError && !channel && !dmOpen && <p className="global-chat-error" role="alert">{messageError}</p>}
+      {dmOpen && <DirectMessages profile={profile} servers={servers} onlineUsers={onlineUsers} onJoinedServer={async id=>{const loaded=await loadServers();setServerIndex(loaded.findIndex(item=>item.id===id)+1);setDmOpen(false);setMobileNav(true);}} onBackChannels={()=>{setDmOpen(false);setMobileNav(true);}}/>}
       {!dmOpen && <>
       {!server && groups.length === 0 && <div className="channel-welcome mancord-welcome"><h1>Welcome to Mancord</h1></div>}
       {server && channel && (server.textChannels.some(item => item.id === channel.id)
@@ -135,7 +154,7 @@ export default function Mancord({ profile, email, onSignOut, signingOut = false,
       </>}
     </section>
     <dialog ref={settingsDialog} className="settings-dialog" aria-label="Settings" onClose={()=>setSettingsOpen(false)}>
-      <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={server || servers[serverIndex - 1]} onBack={()=>setSettingsOpen(false)} onDeleteServer={()=>server && deleteGroup(server.id)} onRenameChannel={renameChannel} onDeleteChannel={deleteChannel} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory} onCreateCategory={()=>server && createCategory(server.id)} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
+      <SettingsPanel key={settingsKind} kind={settingsKind} profile={profile} email={email} server={server || servers[serverIndex - 1]} onBack={()=>setSettingsOpen(false)} onDeleteServer={()=>server && deleteGroup(server.id)} onRenameChannel={renameChannel} onDeleteChannel={deleteChannel} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory} onCreateCategory={()=>server && createCategory(server.id)} onAddMember={addServerMember} onProfileChange={onProfileChange} onSignOut={onSignOut} signingOut={signingOut} authError={authError}/>
     </dialog>
     {notice && <div className="toast"><Sparkles size={15} />{notice}<button onClick={() => setNotice('')} aria-label="Dismiss"><X size={14} /></button></div>}
     {createGroupOpen && <div className="group-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setCreateGroupOpen(false);}}><form className="group-create-dialog" onSubmit={createGroup} aria-labelledby="create-group-title"><button type="button" className="group-create-close" aria-label="Close" onClick={()=>setCreateGroupOpen(false)}><X size={18}/></button><h2 id="create-group-title">Create a group</h2><p>Choose a name and, if you like, an icon.</p><label>Group name<input autoFocus required maxLength={40} value={groupName} onChange={event=>setGroupName(event.target.value)} placeholder="Group name"/></label><fieldset className="group-icon-picker"><legend>Group icon <span>Optional</span></legend><div>{[String.fromCodePoint(0x1F3AE),String.fromCodePoint(0x1F3B5),String.fromCodePoint(0x1F4BB),String.fromCodePoint(0x1F916),String.fromCodePoint(0x1F3A8),String.fromCodePoint(0x1F4DA),String.fromCodePoint(0x1F3C6),String.fromCodePoint(0x1F3AC),String.fromCodePoint(0x1F30D),String.fromCodePoint(0x1F355),String.fromCodePoint(0x2728),String.fromCodePoint(0x1F331)].map(icon=><button key={icon} type="button" className={groupIcon===icon?'selected':''} aria-label={icon} aria-pressed={groupIcon===icon} onClick={()=>setGroupIcon(groupIcon===icon?'':icon)}>{icon}</button>)}</div></fieldset><button className="group-create-submit" type="submit">Save group</button></form></div>}

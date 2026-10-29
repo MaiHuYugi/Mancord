@@ -150,7 +150,7 @@ export default function AuthFlow() {
   if (session && !profile && error) return <main className="auth-backdrop"><section className="auth-card"><Brand/><div className="auth-error"><X size={15}/><span>{error}</span></div><button className="auth-submit" onClick={signOut}>Sign out</button></section></main>;
   if (session && profile && !profile.profile_completed) return <ProfileSetup user={session.user} form={profileForm} setField={updateProfile} fileRef={fileRef} onSelect={selectMedia} onVideoMetadata={setVideoDuration} onSubmit={submitProfile} onSignOut={signOut} busy={busy} error={error} />;
   if (session && profile?.profile_completed && interestsOpen) return <main className="auth-backdrop"><InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/></main>;
-  if (session && profile?.profile_completed) return <Mancord email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} />;
+  if (session && profile?.profile_completed) return <Mancord email={session.user.email} profile={profile} onProfileChange={setProfile} onSignOut={signOut} signingOut={busy} authError={error} />;
 
   function navigate(nextMode) { setMode(nextMode); setError(''); setNotice(''); }
 

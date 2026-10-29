@@ -41,10 +41,10 @@ export default function TextChannel({ channel, profile, messages, draft, onDraft
     if (nearBottom && list.current) list.current.scrollTop = list.current.scrollHeight;
   }, [messages, nearBottom]);
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
     if ((!draft.trim() && !attachment) || readingFile) return;
-    if (onSend(attachment)) {
+    if (await onSend(attachment)) {
       setAttachment(null);
       setAttachmentError('');
       setEmojiOpen(false);
@@ -105,9 +105,9 @@ export default function TextChannel({ channel, profile, messages, draft, onDraft
           return <div key={message.id}>
             {newDay && <div className="channel-message-date"><span>{date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</span></div>}
             <article className="message">
-              <Avatar person={{ mediaUrl: profile.avatar_url, mediaType: profile.avatar_media_type, avatar: profile.username?.[0]?.toUpperCase() || 'Y', color: 'blue' }}/>
+              <Avatar person={{ mediaUrl: message.author?.avatar_url || profile.avatar_url, mediaType: message.author?.avatar_media_type || profile.avatar_media_type, avatar: (message.author?.username || profile.username)?.[0]?.toUpperCase() || 'Y', color: 'blue' }}/>
               <div className="message-content">
-                <div className="message-byline"><strong>{profile.display_name || profile.username || 'You'}</strong><time dateTime={message.createdAt} title={date.toLocaleString()}>{date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></div>
+                <div className="message-byline"><strong>{message.author?.display_name || message.author?.username || profile.display_name || profile.username || 'You'}</strong><time dateTime={message.createdAt} title={date.toLocaleString()}>{date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></div>
                 {message.text && <p>{message.text}</p>}
                 {message.attachment && <a className="channel-file" href={message.attachment.dataUrl} download={message.attachment.name}>{message.attachment.type.startsWith('image/') && <img src={message.attachment.dataUrl} alt={message.attachment.name}/>}<span>{message.attachment.name}</span></a>}
               </div>

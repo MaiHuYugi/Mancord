@@ -32,9 +32,9 @@ export default function TextChannelScreen({ channel, profile, messages, draft, o
 
   useEffect(() => { const subscription = BackHandler.addEventListener('hardwareBackPress', () => { onBack(); return true; }); return () => subscription.remove(); }, [onBack]);
 
-  function send() {
+  async function send() {
     if (reading || (!draft.trim() && !attachment)) return;
-    if (onSend(attachment)) { setAttachment(null); setSearch(''); setEmojiOpen(false); setFileError(''); nearBottom.current = true; }
+    if (await onSend(attachment)) { setAttachment(null); setSearch(''); setEmojiOpen(false); setFileError(''); nearBottom.current = true; }
     input.current?.focus();
   }
 
@@ -65,7 +65,7 @@ export default function TextChannelScreen({ channel, profile, messages, draft, o
       {search.trim()&&<Text style={s.help}>{visible.length ? `${visible.length} matching messages` : 'No messages found.'}</Text>}
       {visible.map((message,index)=>{const date=new Date(message.createdAt);return <View key={message.id}>
         {(!index||new Date(visible[index-1].createdAt).toDateString()!==date.toDateString())&&<Text style={s.date}>{date.toLocaleDateString()}</Text>}
-        <View style={s.message}><ProfileMedia uri={profile.avatar_url} type={profile.avatar_media_type} size={36}/><View style={s.messageBody}><View style={s.byline}><Text style={s.author}>{profile.display_name||profile.username||'You'}</Text><Text style={s.time}>{date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</Text></View>{Boolean(message.text)&&<Text selectable style={s.messageText}>{message.text}</Text>}{message.attachment&&<View style={s.file}>{message.attachment.type.startsWith('image/')&&<Image source={{uri:message.attachment.dataUrl}} style={s.image} resizeMode="contain" accessibilityLabel={message.attachment.name}/>}<Text selectable style={s.help}>{message.attachment.name}</Text></View>}</View></View>
+        <View style={s.message}><ProfileMedia uri={message.author?.avatar_url||profile.avatar_url} type={message.author?.avatar_media_type||profile.avatar_media_type} size={36}/><View style={s.messageBody}><View style={s.byline}><Text style={s.author}>{message.author?.display_name||message.author?.username||profile.display_name||profile.username||'You'}</Text><Text style={s.time}>{date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</Text></View>{Boolean(message.text)&&<Text selectable style={s.messageText}>{message.text}</Text>}{message.attachment&&<View style={s.file}>{message.attachment.type.startsWith('image/')&&<Image source={{uri:message.attachment.dataUrl}} style={s.image} resizeMode="contain" accessibilityLabel={message.attachment.name}/>}<Text selectable style={s.help}>{message.attachment.name}</Text></View>}</View></View>
       </View>;})}
     </ScrollView>
     <View style={s.composerArea}>

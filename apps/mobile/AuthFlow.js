@@ -192,7 +192,7 @@ export default function AuthFlow() {
   if(session&&!profile&&error)return <AuthScreen recoveryError={error} onSignOut={signOut}/>;
   if(session&&profile&&!profile.profile_completed)return <ProfileScreen email={session.user.email} username={username} setUsername={setUsername} media={media} chooseMedia={chooseMedia} chooseAvatar={chooseAvatar} onSignOut={signOut} finish={finishProfile} busy={busy} error={error}/>;
   if(session&&profile?.profile_completed&&interestsOpen)return <InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/>;
-  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onSignOut={signOut} signingOut={busy} authError={error} onAvatarImage={()=>pickAvatar('image')} onAvatarVideo={()=>pickAvatar('video')} onAvatarCamera={saveAvatar} onPickServerIcon={pickServerIcon}/>;
+  if(session&&profile?.profile_completed)return <MancordHome email={session.user.email} profile={profile} onProfileChange={setProfile} onSignOut={signOut} signingOut={busy} authError={error} onAvatarImage={()=>pickAvatar('image')} onAvatarVideo={()=>pickAvatar('video')} onAvatarCamera={saveAvatar} onPickServerIcon={pickServerIcon}/>;
   return <AuthScreen mode={mode} setMode={value=>{setMode(value);setError('');setNotice('');}} email={email} setEmail={setEmail} password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} username={username} setUsername={setUsername} submit={submitAuth} busy={busy} error={error} notice={notice}/>;
 }
 
