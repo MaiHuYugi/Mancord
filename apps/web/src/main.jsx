@@ -4,5 +4,6 @@ import AuthFlow from './AuthFlow.jsx';
 import './styles.css';
 import './auth.css';
 import './figma.css';
+import './direct-messages.css';
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><AuthFlow /></React.StrictMode>);

@@ -138,13 +138,13 @@ export default function Mancord({ profile, email, onProfileChange, onSignOut, si
   function createCategory(groupId) { const category = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: 'New category' }; setGroups(current => current.map(group => group.id === groupId ? { ...group, categories: [...(group.categories || []), category] } : group)); }
   async function addServerMember(groupId,userId){const {error}=await supabase.rpc('add_server_member',{target_server:groupId,target_user:userId});if(!error)await loadServers();return {error};}
 
-  return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"}`}>
+  return <main className={`app-shell ${mobileNav ? "channels-visible" : "chat-visible"} ${dmOpen ? 'dm-visible' : ''}`}>
     <ServerRail servers={servers} selected={serverIndex} onHome={()=>{setDmOpen(true);setMobileNav(false);}} onSelect={index=>{setDmOpen(false);setServerIndex(index);setActiveChannelId('');setMobileNav(true);}} onCreate={()=>setCreateGroupOpen(true)} profile={profile} onSettings={()=>openSettings()}/>
     <CommunityNavigation visible={mobileNav} server={server} showWelcome={!server && groups.length===0} channels={{text:server?.textChannels || [],voice:server?.voiceChannels || []}} activeChannelId={activeChannelId} onDirectMessages={()=>{setDmOpen(true);setMobileNav(false);}} onSelectChannel={id=>{setDmOpen(false);setActiveChannelId(id);setMessageError('');setMobileNav(false);}} onCreateChannel={openCreateChannel} onCreateGroup={()=>setCreateGroupOpen(true)} onServerSettings={()=>server && openSettings('server')} onSettings={()=>openSettings()} onNotice={toast} profile={profile} muted={muted} onMute={()=>setMuted(!muted)} deafened={deafened} onDeafen={()=>setDeafened(!deafened)}/>
 
     <section className="chat-column">
       {messageError && !channel && !dmOpen && <p className="global-chat-error" role="alert">{messageError}</p>}
-      {dmOpen && <DirectMessages profile={profile} servers={servers} onlineUsers={onlineUsers} onJoinedServer={async id=>{const loaded=await loadServers();setServerIndex(loaded.findIndex(item=>item.id===id)+1);setDmOpen(false);setMobileNav(true);}} onBackChannels={()=>{setDmOpen(false);setMobileNav(true);}}/>}
+      {dmOpen && <DirectMessages key={profile.id} profile={profile} servers={servers} onlineUsers={onlineUsers} onSettings={()=>openSettings()} onGroupCreated={async (id, channelId)=>{const loaded=await loadServers();const index=loaded.findIndex(item=>item.id===id);if(index<0)throw new Error('Could not open your group. Please retry.');setServerIndex(index+1);setActiveChannelId(channelId);setDmOpen(false);setMobileNav(false);}} onJoinedServer={async id=>{const loaded=await loadServers();setServerIndex(loaded.findIndex(item=>item.id===id)+1);setDmOpen(false);setMobileNav(true);}} onBackChannels={()=>{setDmOpen(false);setMobileNav(true);}}/>}
       {!dmOpen && <>
       {!server && groups.length === 0 && <div className="channel-welcome mancord-welcome"><h1>Welcome to Mancord</h1></div>}
       {server && channel && (server.textChannels.some(item => item.id === channel.id)
