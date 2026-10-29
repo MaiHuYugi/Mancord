@@ -3,4 +3,3 @@ dist/
 .expo/
 .env
 .env.*
-.env.example
