@@ -4,6 +4,7 @@ import { SvgXml } from 'react-native-svg';
 import { readSvgAsset } from './svgAsset';
 
 const assets = {
+  dmButton: require('../web/public/assets/dm/button-overlay.svg'),
   textBackground: require('../web/public/assets/text-channel/background.svg'),
   textHeader: require('../web/public/assets/text-channel/header.svg'),
   textBack: require('../web/public/assets/text-channel/back.svg'),
@@ -62,7 +63,7 @@ const assets = {
   transferRight: require('../web/public/assets/design/3481d.svg'),
   interestsBack: require('../web/public/assets/design/d4fed.svg'),
 };
-export default function DesignAsset({ name }) {
+export default function DesignAsset({ name, size }) {
   const [loadedAssets] = useAssets([assets[name]]);
   const asset = loadedAssets?.[0];
   const [xml, setXml] = useState(null);
@@ -79,5 +80,5 @@ export default function DesignAsset({ name }) {
     return () => { active = false; };
   }, [asset]);
 
-  return xml ? <SvgXml xml={xml}/> : null;
+  return xml ? (size ? <SvgXml xml={xml} width={size} height={size}/> : <SvgXml xml={xml}/>) : null;
 }

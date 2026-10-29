@@ -4,7 +4,7 @@ import DesignIcon, { Glyph } from './DesignIcon.jsx';
 
 export function ServerRail({ servers, selected, onSelect, onHome, onCreate, profile, onSettings }) {
   return <aside className="server-rail" aria-label="Groups">
-    <button type="button" className="design-home" aria-label="Direct messages" title="Direct messages" onClick={onHome}><DesignIcon name="logo"/><DesignIcon name="bolt" className="home-bolt"/></button>
+    <button type="button" className="design-home" aria-label="Direct messages" title="Direct messages" onClick={onHome}><img className="dm-button-icon" src="/assets/dm/button-overlay.svg" width="48" height="48" alt="" aria-hidden="true"/></button>
     <nav className="design-servers" aria-label="Your groups">
       {servers.map((server,index)=><button type="button" key={server.id} className={`design-server ${selected===index+1?'selected':''}`} style={{backgroundColor:server.color}} aria-label={server.name} title={server.name} aria-pressed={selected===index+1} onClick={()=>onSelect(index+1)}>{server.icon_url?(server.icon_media_type?.startsWith('video/')?<video className="server-icon-media" src={server.icon_url} autoPlay muted loop playsInline/>:<img className="server-icon-media" src={server.icon_url} alt=""/>):<Glyph>{server.glyph}</Glyph>}{selected===index+1 && <><i className="server-selection"/><i className="server-unread"/></>}</button>)}
       <button type="button" className="design-server design-add-server" aria-label="Create a group" title="Create a group" onClick={onCreate}><DesignIcon name="addServer"/></button>

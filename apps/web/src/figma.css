@@ -6,8 +6,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button:d
 .app-shell{grid-template-columns:64px 338px minmax(0,1fr) 220px;height:100dvh;min-height:540px;background:#000;font-family:Inter,sans-serif}
 .server-rail{display:flex;gap:12px;padding:16px 8px;background:#23103a;border-right:1px solid #ffffff1a;min-height:0;overflow-y:auto;scrollbar-width:none}
 .design-home,.design-server,.rail-profile{display:flex;align-items:center;justify-content:center;position:relative;width:48px;height:48px;border-radius:16px;flex:none;padding:0}
-.design-home{background:#7f22fe26;box-shadow:0 0 0 1px #7f22fe66,0 0 24px #7c3aed73;margin-bottom:4px}
-.design-home .home-bolt{position:absolute;left:16px;top:16px}
+.design-home{background:transparent;box-shadow:none;margin-bottom:4px}
+.design-home .dm-button-icon{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}.design-home:hover{filter:brightness(1.12)}.design-home:active{opacity:.8}
 .design-servers{display:flex;flex-direction:column;gap:12px}.design-server{color:#fafafa;box-shadow:0 0 0 1px #ffffff0f;font-size:20px}.server-icon-media{width:100%;height:100%;border-radius:inherit;object-fit:cover}
 .design-server.selected{box-shadow:0 0 0 2px var(--purple),0 0 0 1px #ffffff14}.design-server:hover{filter:brightness(1.2)}
 .server-selection{position:absolute;width:4px;height:32px;left:-10px;top:8px;border-radius:99px;background:var(--purple);box-shadow:0 0 18px #7c3aedcc}
