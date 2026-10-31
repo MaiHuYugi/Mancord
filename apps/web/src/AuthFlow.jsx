@@ -1,4 +1,6 @@
 import ProfileSetup from './ProfileSetup.jsx';
+import WelcomeScreen from './WelcomeScreen.jsx';
+import './auth-updated.css';
 import InterestsScreen from './InterestsScreen.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Check, LoaderCircle, LockKeyhole, X } from 'lucide-react';
@@ -145,8 +147,9 @@ export default function AuthFlow() {
     } finally { logoutInProgress.current = false; setBusy(false); }
   }
 
-  if (!supabase) return <main className="auth-backdrop"><div className="auth-card setup-card"><Brand /><div className="auth-icon"><LockKeyhole size={22}/></div><h1>Connect Mancord</h1><p>Add your Supabase project URL and anon key to <code>apps/web/.env.local</code>, then restart the web app to enable account creation and login.</p><div className="setup-code">VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY</div></div></main>;
-  if (loading || (session && (profileLoading || (!profile && !error)))) return <main className="auth-backdrop"><div className="auth-loading"><span className="brand-mark">m.</span><LoaderCircle className="spinner" size={20}/></div></main>;
+  if (!supabase && mode === 'welcome') return <WelcomeScreen onStart={() => navigate('register')}/>;
+  if (!supabase) return <main className="auth-backdrop"><div className="auth-card setup-card"><Brand /><div className="auth-icon"><LockKeyhole size={22}/></div><h1>Connect Mancord</h1><p>Add your Supabase project URL and anon key to <code>apps/web/.env.local</code>, then restart the web app to enable account creation and login.</p><div className="setup-code">VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY</div><button className="auth-back" onClick={() => navigate('welcome')}>Back to welcome</button></div></main>;
+  if (loading || (session && (profileLoading || (!profile && !error)))) return <main className="welcome-backdrop welcome-loading"><div className="welcome-scenery" aria-hidden="true"><img src="/assets/welcome/background.png" alt="" fetchPriority="high"/></div><div className="auth-loading" style={{position:'relative'}}><span className="brand-mark">m.</span><LoaderCircle className="spinner" size={20}/></div></main>;
   if (session && !profile && error) return <main className="auth-backdrop"><section className="auth-card"><Brand/><div className="auth-error"><X size={15}/><span>{error}</span></div><button className="auth-submit" onClick={signOut}>Sign out</button></section></main>;
   if (session && profile && !profile.profile_completed) return <ProfileSetup user={session.user} form={profileForm} setField={updateProfile} fileRef={fileRef} onSelect={selectMedia} onVideoMetadata={setVideoDuration} onSubmit={submitProfile} onSignOut={signOut} busy={busy} error={error} />;
   if (session && profile?.profile_completed && interestsOpen) return <main className="auth-backdrop"><InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/></main>;
@@ -154,32 +157,31 @@ export default function AuthFlow() {
 
   function navigate(nextMode) { setMode(nextMode); setError(''); setNotice(''); }
 
-  if (mode === 'welcome') return <main className="auth-backdrop"><section className="welcome-screen" aria-labelledby="welcome-title">
-    <div className="welcome-brand"><h1 id="welcome-title">MANCORD</h1><p>Your universe. Your voice.</p></div>
-    <div className="welcome-actions"><button className="welcome-start" onClick={() => navigate('register')}>Get Started</button><button className="welcome-login" onClick={() => navigate('login')}>I already have an account</button></div>
-    <p className="welcome-terms">By continuing, you agree to our Terms &amp; Privacy Policy</p>
-  </section></main>;
+  if (mode === 'welcome') return <WelcomeScreen onStart={() => navigate('register')}/>;
 
   const registering = mode === 'register';
-  return <main className="auth-backdrop"><section className={`auth-screen ${registering ? 'register-screen' : 'login-screen'}`} aria-labelledby="auth-title">
+  return <main className="auth-backdrop updated-auth"><section className={`auth-screen ${registering ? 'register-screen' : 'login-screen'}`} aria-labelledby="auth-title">
     <button className="auth-back" aria-label="Back to welcome" disabled={busy} onClick={() => navigate('welcome')}><AuthAsset name="back" /></button>
     <header className="auth-heading"><h1 id="auth-title" className={registering ? '' : 'login-greeting'}>{registering ? 'Create Account' : 'welcome to Mancord!'}</h1>{registering && <p>Join the Mancord community</p>}</header>
     <div className="auth-feedback" aria-live="polite">{notice && <div className="auth-notice" role="status"><Check size={15}/><span>{notice}</span></div>}{error && <div className="auth-error" role="alert"><X size={15}/><span>{error}</span></div>}</div>
     <form onSubmit={submitAuth} className="auth-form" aria-busy={busy}>
       {registering && <label className="auth-input"><span className="sr-only">Username</span><span className="field"><AuthAsset name="user"/><input autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" required value={profileForm.username} onChange={event => updateProfile('username',event.target.value)} placeholder="Username" disabled={busy}/></span></label>}
-      <label className="auth-input"><span className="sr-only">Email address</span><span className="field"><AuthAsset name="mail"/><input type="email" autoComplete="email" required value={authForm.email} onChange={event => updateAuth('email',event.target.value)} placeholder="Email Address" disabled={busy}/></span></label>
+      <label className="auth-input"><span className="sr-only">Email address</span><span className="field"><AuthAsset name={registering ? 'mail' : 'user'}/><input type="email" autoComplete="email" required value={authForm.email} onChange={event => updateAuth('email',event.target.value)} placeholder="Email Address" disabled={busy}/></span></label>
       <label className="auth-input"><span className="sr-only">Password</span><span className="field"><AuthAsset name="lock"/><input type="password" autoComplete={registering ? 'new-password' : 'current-password'} minLength={8} required value={authForm.password} onChange={event => updateAuth('password',event.target.value)} placeholder="Password" disabled={busy}/></span></label>
       {registering && <label className="auth-input"><span className="sr-only">Confirm password</span><span className="field"><AuthAsset name="lock"/><input type="password" autoComplete="new-password" minLength={8} required value={authForm.confirm} onChange={event => updateAuth('confirm',event.target.value)} placeholder="Confirm Password" disabled={busy}/></span></label>}
       <button disabled={busy} className="auth-submit">{busy ? <><LoaderCircle size={18} className="spinner"/>Please wait…</> : 'Continue'}</button>
     </form>
-    <div className="auth-divider"><span>or {registering ? 'sign up' : 'sign in'} with</span></div>
-    <div className="auth-social"><button disabled title="Google sign-in is not available"><span className="social-icon-space" aria-hidden="true"/>Google</button><button disabled title="Apple sign-in is not available"><AuthAsset name="apple"/>Apple</button></div>
+    <div className="auth-divider"><span>or sign up with</span></div>
+    <div className="auth-social"><button disabled title="Google sign-in is not available"><AuthAsset name="google"/>Google</button><button disabled title="Apple sign-in is not available"><AuthAsset name="apple"/>Apple</button></div>
     <p className="auth-provider-note">Google and Apple sign-in coming soon</p>
     <div className="auth-switch">{registering ? 'Already have an account?' : 'New to Mancord?'} <button disabled={busy} onClick={() => navigate(registering ? 'login' : 'register')}>{registering ? 'Log in' : 'Create an account'}</button></div>
     <footer className="auth-footer"><button className="auth-back" disabled={busy} onClick={() => navigate('welcome')}><AuthAsset name="back-small"/>Back</button></footer>
   </section></main>;
 }
 
-function AuthAsset({ name }) { return <img className="auth-asset" src={`/assets/auth/${name}.svg`} alt=""/>; }
+function AuthAsset({ name }) {
+  const [width,height] = name === 'back' ? [24,24] : name === 'google' ? [26,27] : name === 'apple' ? [22.1,26] : [20,20];
+  return <img className="auth-asset" src={`/assets/auth-updated/${name === 'back-small' ? 'back' : name}.png`} alt="" aria-hidden="true" width={width} height={height}/>;
+}
 
 function Brand() { return <div className="auth-brand"><span className="brand-mark">m.</span><span>mancord</span></div>; }

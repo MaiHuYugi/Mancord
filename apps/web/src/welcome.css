@@ -1,0 +1,26 @@
+.welcome-backdrop{min-height:100svh;display:flex;justify-content:center;background:#17052d;color:#f7f2ff;font-family:Inter,sans-serif;color-scheme:dark}
+.welcome-viewport{position:relative;width:100%;height:100svh;height:100dvh;overflow:hidden;align-self:center}
+.welcome-canvas{position:absolute;left:50%;top:50%;width:407px;height:882px;transform-origin:center}
+.welcome-scenery{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.welcome-scenery img{display:block;width:100%;height:100%;object-fit:cover}
+.welcome-loading{position:relative;height:100dvh;overflow:hidden}
+.welcome-art{pointer-events:none;position:absolute;inset:0}
+.welcome-art img{position:absolute;display:block;max-width:none}
+.welcome-edge{left:-.5px;top:0;transform:scaleX(-1)}
+.welcome-brand-glow{left:57.37px;top:242px}
+.welcome-divider{left:99px;top:481.25px}
+.welcome-spark{left:178.301px;top:437.843px}
+.welcome-dot{left:197.1px;top:473.1px}
+.welcome-branding{position:absolute;inset:0;pointer-events:none}
+.welcome-heading{position:absolute;left:78.681px;top:340.1px;width:258px;height:34px;margin:0}
+.welcome-heading img,.welcome-tagline img{display:block;max-width:none}
+.welcome-wordmark{position:absolute;left:105.728px;top:392.882px;margin:0;width:209px;height:30px}
+.welcome-wordmark img{display:block;max-width:none}
+.welcome-tagline{position:absolute;left:92.519px;top:443.687px;width:242px;height:19px;margin:0}
+.welcome-begin{position:absolute;left:106px;top:540px;width:212px;height:44px;isolation:isolate;border:0;border-radius:103px;background:transparent;cursor:pointer;padding:0}
+.welcome-begin>img{position:absolute;display:block;max-width:none;pointer-events:none}
+.welcome-button-art{left:-6px;top:-6px;z-index:-1}
+.welcome-button-label{left:19.023px;top:16.237px;width:172px;height:16px}
+.welcome-begin:hover{filter:brightness(1.08)}
+.welcome-begin:active{filter:brightness(.92)}
+.welcome-begin:focus-visible{outline:2px solid #f7f2ff;outline-offset:6px}

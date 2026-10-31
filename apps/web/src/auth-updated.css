@@ -1,0 +1,27 @@
+.updated-auth{font-optical-sizing:none}
+.updated-auth .auth-screen{width:398px;max-width:100%;padding:24px;min-height:max(865px,100dvh)}
+.updated-auth .register-screen{min-height:max(903px,100dvh)}
+.updated-auth .auth-back{padding:8px 12px;min-width:48px;height:40px;flex:none}
+.updated-auth .auth-heading h1{margin:0;line-height:35px;letter-spacing:0}
+.updated-auth .register-screen .auth-heading{margin:16px 0 0}
+.updated-auth .register-screen .auth-heading p{margin:8px 0 0}
+.updated-auth .login-screen .auth-heading{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0;padding:0}
+.updated-auth .auth-form{gap:16px;margin-top:32px}
+.updated-auth .login-screen .auth-form{margin-top:42.333px;gap:42.333px}
+.updated-auth .field{height:54px;padding:16px;gap:12px;border-radius:12px;flex:none}
+.updated-auth .field input{font-size:14px;line-height:20px}
+.updated-auth .auth-submit{height:56px;min-height:56px;margin-top:16px;border-radius:12px}
+.updated-auth .login-screen .auth-submit{margin-top:32px}
+.updated-auth .auth-divider{height:16px;flex:none;margin-top:32px}
+.updated-auth .register-screen .auth-divider{margin-top:32px}
+.updated-auth .login-screen .auth-divider{margin-top:74.333px}
+.updated-auth .auth-social{margin-top:32px;grid-template-columns:minmax(0,159fr) minmax(0,173fr);gap:16px;padding-right:2px}
+.updated-auth .register-screen .auth-social{margin-top:32px}
+.updated-auth .login-screen .auth-social{margin-top:58.333px}
+.updated-auth .auth-social button{gap:16px;padding:8px;min-width:0;height:56px;opacity:1;color:#fff}
+.updated-auth .auth-provider-note{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.updated-auth .auth-switch{margin-top:24px}
+.updated-auth .auth-footer{padding-top:32px}
+.updated-auth .auth-footer .auth-back{height:44px}
+.updated-auth .auth-feedback:not(:empty){margin-top:20px}
+@media(min-width:701px){.updated-auth{padding:0;align-items:flex-start}.updated-auth .auth-screen{min-height:max(865px,100dvh)}.updated-auth .register-screen{min-height:max(903px,100dvh)}}

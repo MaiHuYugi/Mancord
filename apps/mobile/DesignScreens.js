@@ -5,13 +5,15 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LogOut, MicOff } from 'lucide-react-native';
 import DesignAsset from './DesignAsset';
+import WelcomeScreen from './WelcomeScreen';
+import UpdatedAuthScreen from './UpdatedAuthScreen';
 import { supabase } from './supabase';
 
 const c = { bg:'#000',panel:'#18181b',field:'#2d1b4e',purple:'#7f22fe',accent:'#a684ff',text:'#c4b4ff',muted:'#9f9fa9' };
 export function Text({ style, ...props }) { return <NativeText {...props} style={[{fontFamily:'Inter',fontSize:14,color:'#fafafa'},style]}/>; }
 export function Glyph({ children, size = 20 }) { return <NativeText style={{fontFamily:'NotoEmoji',fontSize:size,color:'#fafafa'}}>{children}</NativeText>; }
-export function GradientButton({ children, onPress, disabled, busy, style }) {
-  return <Pressable accessibilityRole="button" disabled={disabled || busy} onPress={onPress} style={[s.primary,style,(disabled || busy)&&{opacity:.6}]}><Svg style={StyleSheet.absoluteFill} width="100%" height="100%"><Defs><LinearGradient id="primary" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor="#7c3aed"/><Stop offset="1" stopColor="#5b21b6"/></LinearGradient></Defs><Rect width="100%" height="100%" rx="16" fill="url(#primary)"/></Svg>{busy?<ActivityIndicator color="#fff"/>:<Text style={s.primaryText}>{children}</Text>}</Pressable>;
+export function GradientButton({ children, onPress, disabled, busy, style, radius = 16 }) {
+  return <Pressable accessibilityRole="button" disabled={disabled || busy} onPress={onPress} style={[s.primary,style,(disabled || busy)&&{opacity:.6}]}><Svg style={StyleSheet.absoluteFill} width="100%" height="100%"><Defs><LinearGradient id="primary" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor="#7c3aed"/><Stop offset="1" stopColor="#5b21b6"/></LinearGradient></Defs><Rect width="100%" height="100%" rx={radius} fill="url(#primary)"/></Svg>{busy?<ActivityIndicator color="#fff"/>:<Text style={s.primaryText}>{children}</Text>}</Pressable>;
 }
 function Back({ onPress, label = 'Back', icon = 'back' }) { return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={8} style={[s.back,{width:80,paddingHorizontal:8}]}><DesignAsset name={icon}/><Text style={{color:c.text}}>Back</Text></Pressable>; }
 export function ProfileMedia({ uri, type, size = 40, rounded = true }) {
@@ -28,15 +30,9 @@ function AuthInput({ icon, label, ...props }) { return <View style={s.field}><De
 
 export function AuthScreen({ configured=true,recoveryError='',onSignOut,mode='welcome',setMode,email,setEmail,password,setPassword,confirm,setConfirm,username,setUsername,submit,busy,error,notice }) {
   const register=mode==='register';
-  if(!configured || recoveryError)return <Frame contentStyle={{justifyContent:'center'}}><Text style={s.heading}>{recoveryError?'Could not load profile':'Connect Mancord'}</Text><Text style={s.copy}>{recoveryError || 'Configure your Supabase environment to enable login.'}</Text>{recoveryError&&<GradientButton onPress={onSignOut} busy={busy}>Log out</GradientButton>}</Frame>;
-  if(mode==='welcome')return <Frame contentStyle={{paddingHorizontal:32,paddingTop:48}}><View style={s.welcomeBrand}><Text style={s.wordmark}>MANCORD</Text><Text style={{fontSize:16,color:c.accent,marginTop:8}}>Your universe. Your voice.</Text></View><Pressable accessibilityRole="button" onPress={()=>setMode('register')} style={s.getStarted}><Text style={s.primaryText}>Get Started</Text></Pressable><Pressable accessibilityRole="button" onPress={()=>setMode('login')} style={s.existingAccount}><Text style={{color:c.text,fontSize:16,fontWeight:'600'}}>I already have an account</Text></Pressable><Text style={s.terms}>By continuing, you agree to our Terms &amp; Privacy Policy</Text></Frame>;
-  return <Frame><Back onPress={()=>setMode('welcome')} label="Back to welcome"/><View style={{marginTop:register?16:46,marginBottom:32}}><Text accessibilityRole="header" style={register?s.heading:s.greeting}>{register?'Create Account':'welcome to Mancord!'}</Text>{register&&<Text style={[s.copy,{marginTop:8}]}>Join the Mancord community</Text>}</View>{notice?<Text accessibilityRole="alert" style={s.notice}>{notice}</Text>:null}{error?<Text accessibilityRole="alert" style={s.error}>{error}</Text>:null}
-    <View style={{gap:register?16:30}}>{register&&<AuthInput icon="authUser" label="Username" placeholder="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} maxLength={24} editable={!busy}/>}
-    <AuthInput icon="authMail" label="Email address" placeholder="Email Address" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" editable={!busy}/><AuthInput icon="authLock" label="Password" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={register?'new-password':'current-password'} editable={!busy}/>{register&&<AuthInput icon="authLock" label="Confirm password" placeholder="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password" editable={!busy}/>}</View>
-    <GradientButton style={{marginTop:register?32:62}} onPress={submit} busy={busy}>Continue</GradientButton>
-    <View style={s.divider}><View style={s.rule}/><Text style={{fontSize:12,color:c.text}}>or {register?'sign up':'sign in'} with</Text><View style={s.rule}/></View><View style={s.social}><Pressable accessibilityRole="button" accessibilityLabel="Google sign in coming soon" disabled style={s.socialButton}><Text>Google</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Apple sign in coming soon" disabled style={s.socialButton}><View style={{flexDirection:"row",alignItems:"center",gap:16}}><DesignAsset name="authApple"/><Text>Apple</Text></View></Pressable></View><Text style={s.providerNote}>Google and Apple sign-in coming soon</Text>
-    <Pressable accessibilityRole="button" onPress={()=>setMode(register?'login':'register')} disabled={busy} style={{marginTop:20,padding:8}}><Text style={{textAlign:'center',fontSize:12,color:c.text}}>{register?'Already have an account? Log in':'New to Mancord? Create an account'}</Text></Pressable><View style={{flex:1,minHeight:40}}/><Back onPress={()=>setMode('welcome')}/>
-  </Frame>;
+  if(mode==='welcome' && !recoveryError)return <WelcomeScreen onStart={()=>setMode('register')}/>;
+  if(!configured || recoveryError)return <Frame contentStyle={{justifyContent:'center'}}><Text style={s.heading}>{recoveryError?'Could not load profile':'Connect Mancord'}</Text><Text style={s.copy}>{recoveryError || 'Configure your Supabase environment to enable login.'}</Text>{recoveryError?<GradientButton onPress={onSignOut} busy={busy}>Log out</GradientButton>:<Back onPress={()=>setMode('welcome')} label="Back to welcome"/>}</Frame>;
+  return <UpdatedAuthScreen register={register} setMode={setMode} email={email} setEmail={setEmail} password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} username={username} setUsername={setUsername} submit={submit} busy={busy} error={error} notice={notice} ContinueButton={GradientButton}/>;
 }
 
 export const suggestedAvatars = [

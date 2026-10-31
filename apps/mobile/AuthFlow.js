@@ -1,7 +1,7 @@
 import { Asset } from 'expo-asset';
 import { AuthScreen, ProfileScreen, InterestsScreen } from './DesignScreens';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { maxProfileMediaSize as maxSize, readProfileMedia } from './profileMedia';
@@ -187,8 +187,8 @@ export default function AuthFlow() {
     finally{logoutInProgress.current=false;setBusy(false);}
   }
 
-  if(!supabase)return <AuthScreen configured={false}/>;
-  if(loading||(session&&!profile&&!error))return <SafeAreaView style={s.safe}><StatusBar barStyle="light-content"/><View style={s.center}><Text style={s.brandMark}>m.</Text><ActivityIndicator color="#b5a5ff" style={{marginTop:15}}/></View></SafeAreaView>;
+  if(!supabase)return <AuthScreen configured={false} mode={mode} setMode={setMode}/>;
+  if(loading||(session&&!profile&&!error))return <View style={[s.safe,{backgroundColor:'#17052d'}]}><StatusBar barStyle="light-content" translucent backgroundColor="transparent"/><Image source={require('../web/public/assets/welcome/background.png')} style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]} resizeMode="cover" fadeDuration={0}/><View style={s.center}><Text style={s.brandMark}>m.</Text><ActivityIndicator color="#b5a5ff" style={{marginTop:15}}/></View></View>;
   if(session&&!profile&&error)return <AuthScreen recoveryError={error} onSignOut={signOut}/>;
   if(session&&profile&&!profile.profile_completed)return <ProfileScreen email={session.user.email} username={username} setUsername={setUsername} media={media} chooseMedia={chooseMedia} chooseAvatar={chooseAvatar} onSignOut={signOut} finish={finishProfile} busy={busy} error={error}/>;
   if(session&&profile?.profile_completed&&interestsOpen)return <InterestsScreen userId={profile.id} onDone={()=>setInterestsOpen(false)}/>;
