@@ -5,6 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import DesignAsset from './DesignAsset';
 import { ProfileMedia } from './DesignScreens';
+import ServerProfileModal from './ServerProfileModal';
 
 const emojis = [0x1f600, 0x1f602, 0x2764, 0x1f44d, 0x1f389, 0x1f525, 0x1f440, 0x2728].map(code => String.fromCodePoint(code));
 
@@ -25,6 +26,7 @@ export default function TextChannelScreen({ channel, profile, messages, draft, o
   const [attachment, setAttachment] = useState(null);
   const [fileError, setFileError] = useState('');
   const [reading, setReading] = useState(false);
+  const [profileUser, setProfileUser] = useState(null);
   const [composerHeight, setComposerHeight] = useState(45);
   const list = useRef(null), input = useRef(null), nearBottom = useRef(true);
   const visible = messages.filter(message => `${message.text} ${message.attachment?.name || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
@@ -65,9 +67,9 @@ export default function TextChannelScreen({ channel, profile, messages, draft, o
       {search.trim()&&<Text style={s.help}>{visible.length ? `${visible.length} matching messages` : 'No messages found.'}</Text>}
       {visible.map((message,index)=>{const date=new Date(message.createdAt);return <View key={message.id}>
         {(!index||new Date(visible[index-1].createdAt).toDateString()!==date.toDateString())&&<Text style={s.date}>{date.toLocaleDateString()}</Text>}
-        <View style={s.message}><ProfileMedia uri={message.author?.avatar_url||profile.avatar_url} type={message.author?.avatar_media_type||profile.avatar_media_type} size={36}/><View style={s.messageBody}><View style={s.byline}><Text style={s.author}>{message.author?.display_name||message.author?.username||profile.display_name||profile.username||'You'}</Text><Text style={s.time}>{date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</Text></View>{Boolean(message.text)&&<Text selectable style={s.messageText}>{message.text}</Text>}{message.attachment&&<View style={s.file}>{message.attachment.type.startsWith('image/')&&<Image source={{uri:message.attachment.dataUrl}} style={s.image} resizeMode="contain" accessibilityLabel={message.attachment.name}/>}<Text selectable style={s.help}>{message.attachment.name}</Text></View>}</View></View>
+        <View style={s.message}><Pressable accessibilityRole="button" accessibilityLabel="Open member profile" onPress={()=>message.author&&setProfileUser(message.author)}><ProfileMedia uri={message.author?.avatar_url||profile.avatar_url} type={message.author?.avatar_media_type||profile.avatar_media_type} size={36}/></Pressable><View style={s.messageBody}><View style={s.byline}><Pressable onPress={()=>message.author&&setProfileUser(message.author)}><Text style={s.author}>{message.author?.display_name||message.author?.username||profile.display_name||profile.username||'You'}</Text></Pressable><Text style={s.time}>{date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</Text></View>{Boolean(message.text)&&<Text selectable style={s.messageText}>{message.text}</Text>}{message.attachment&&<View style={s.file}>{message.attachment.type.startsWith('image/')&&<Image source={{uri:message.attachment.dataUrl}} style={s.image} resizeMode="contain" accessibilityLabel={message.attachment.name}/>}<Text selectable style={s.help}>{message.attachment.name}</Text></View>}</View></View>
       </View>;})}
-    </ScrollView>
+    </ScrollView><ServerProfileModal visible={Boolean(profileUser)} profile={profileUser||profile} server={null} canMessage={profileUser?.id!==profile.id} onClose={()=>setProfileUser(null)}/>
     <View style={s.composerArea}>
       {attachment&&<View style={s.pending}><Text numberOfLines={1} style={[s.help,{flex:1}]}>{attachment.name}</Text><Pressable accessibilityRole="button" accessibilityLabel="Remove attachment" onPress={()=>setAttachment(null)} style={s.smallButton}><X size={18} color="#eddbff"/></Pressable></View>}
       {emojiOpen&&<View style={s.emojis}>{emojis.map(emoji=><Pressable key={emoji} accessibilityRole="button" accessibilityLabel={`Insert ${emoji}`} onPress={()=>{onDraftChange(draft+emoji);setEmojiOpen(false);input.current?.focus();}} style={s.emojiChoice}><Text style={{fontSize:22}}>{emoji}</Text></Pressable>)}</View>}
